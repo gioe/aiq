@@ -1,9 +1,7 @@
 import AIQSharedKit
 import AuthenticationServices
-import CryptoKit
 import GoogleSignIn
 import GoogleSignInSwift
-import Security
 import SwiftUI
 
 /// Welcome/Login screen with delightful animations and gamification
@@ -14,7 +12,7 @@ struct WelcomeView: View {
     /// flipping to true inside `AuthManager.loginWithGoogle`. Closes the race window where a quick
     /// second tap would otherwise pass the `isLoading` guard and spawn a parallel sign-in sheet.
     @State private var isGoogleSignInInFlight = false
-    @State private var currentAppleSignInNonce: String?
+    @State private var appleSignInNonce = AppleSignInNonceContext()
 
     /// Callback to start a guest test (bypasses authentication)
     var onStartGuestTest: (() -> Void)?
@@ -150,10 +148,7 @@ struct WelcomeView: View {
 
                             SignInWithAppleButton(
                                 onRequest: { request in
-                                    let nonce = Self.makeNonce()
-                                    currentAppleSignInNonce = nonce
-                                    request.requestedScopes = [.email]
-                                    request.nonce = Self.sha256(nonce)
+                                    appleSignInNonce.prepare(request)
                                 },
                                 onCompletion: { result in
                                     Task { await handleAppleSignIn(result: result) }
@@ -349,7 +344,7 @@ struct WelcomeView: View {
         // underlying control even while the SwiftUI container is `.disabled`, so drop any tap
         // that arrives during an in-flight login to avoid racing two sign-in attempts.
         guard !viewModel.isLoading else { return }
-        defer { currentAppleSignInNonce = nil }
+        defer { appleSignInNonce.clear() }
 
         switch result {
         case let .success(authorization):
@@ -363,7 +358,7 @@ struct WelcomeView: View {
                 )
                 return
             }
-            guard let nonce = currentAppleSignInNonce else {
+            guard let nonce = appleSignInNonce.consumeRawNonce() else {
                 viewModel.error = APIError.api(
                     .unknown(message: "Apple sign-in nonce was unavailable. Please try again.")
                 )
@@ -376,35 +371,6 @@ struct WelcomeView: View {
             }
             viewModel.error = APIError.api(.unknown(message: error.localizedDescription))
         }
-    }
-
-    private static func makeNonce(length: Int = 32) -> String {
-        precondition(length > 0)
-
-        let charset = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
-        var result = ""
-        result.reserveCapacity(length)
-        var remainingLength = length
-
-        while remainingLength > 0 {
-            var randomBytes = [UInt8](repeating: 0, count: 16)
-            let status = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
-            precondition(status == errSecSuccess, "Failed to generate secure random bytes")
-
-            for random in randomBytes where remainingLength > 0 {
-                if random < charset.count {
-                    result.append(charset[Int(random)])
-                    remainingLength -= 1
-                }
-            }
-        }
-
-        return result
-    }
-
-    private static func sha256(_ input: String) -> String {
-        let digest = SHA256.hash(data: Data(input.utf8))
-        return digest.map { String(format: "%02x", $0) }.joined()
     }
 }
 

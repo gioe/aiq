@@ -204,6 +204,7 @@
 		9C12062197CE4EAAE3E835EA /* JoinGroupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BC3E2616A289916F3FA916A /* JoinGroupView.swift */; };
 		9DF3E4663CC74486E943DD9D /* TestAbandonmentErrorScenarioTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A5FEBB0B4125E5CCB8E443C /* TestAbandonmentErrorScenarioTests.swift */; };
 		9E2B105F93AE96D0FF297C97 /* BiometricAuthManagerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31501D9D65C942EABD4F112C /* BiometricAuthManagerProtocol.swift */; };
+		9EE1751BEEF057EF028FC368 /* AppleSignInNonceContextTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06A9982F53CE7B992340B0A3 /* AppleSignInNonceContextTests.swift */; };
 		9FC23B7976AE4696C28C6E1C /* ActiveSessionFlowIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 667A2129A6669EA6AD0B280E /* ActiveSessionFlowIntegrationTests.swift */; };
 		A0719326721984567C906017 /* OpenAPIServiceMapToAPIErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11FC47CAFCC74AFAEFF03D41 /* OpenAPIServiceMapToAPIErrorTests.swift */; };
 		A1020D7FBE59F666D88A50D7 /* CacheKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8584310DF575119FD30D7CD3 /* CacheKey.swift */; };
@@ -323,6 +324,7 @@
 		F8D28DE01F161F392675F33F /* NumberExtensionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E32836E4C5FF9CA1853060FC /* NumberExtensionsTests.swift */; };
 		F936E2A0F43FCA979BBE3977 /* MockServiceConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70608F3722C3538B465EA556 /* MockServiceConfiguration.swift */; };
 		F9F7F18D1083F9210320606F /* NotificationSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A9DE389A0A5B5902EC26C7E /* NotificationSettingsViewModel.swift */; };
+		FA3C386D870C5133A388AB29 /* AppleSignInNonceContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 345251BAA6A0E3DC982BBBCC /* AppleSignInNonceContext.swift */; };
 		FC3162E0ADD5408CE98F4060 /* MockModeDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 972EDF14D846639206E3F31D /* MockModeDetectorTests.swift */; };
 		FE4E97DD6D013577F04589A7 /* TestProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE8BBE439EDEA46900F6A608 /* TestProgressView.swift */; };
 		FF71F632823D6199E2EC7C1A /* TestTakingViewModelCooldownTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 254B4CBC6C147AF6D1ED6A33 /* TestTakingViewModelCooldownTests.swift */; };
@@ -359,6 +361,7 @@
 		02640EF24E305030297B614F /* PreTestRulesPageView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PreTestRulesPageView.swift; path = Features/PreTestOnboarding/Views/Pages/PreTestRulesPageView.swift; sourceTree = "<group>"; };
 		03A839FCC317A5FF03CFAD3F /* HistoryViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewModelTests.swift; sourceTree = "<group>"; };
 		0528989EAABEC1CC29EFF6D6 /* UITestMockSecureStorage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UITestMockSecureStorage.swift; sourceTree = "<group>"; };
+		06A9982F53CE7B992340B0A3 /* AppleSignInNonceContextTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppleSignInNonceContextTests.swift; sourceTree = "<group>"; };
 		06B09FEC0703158590FE3520 /* AppStateStorageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppStateStorageTests.swift; sourceTree = "<group>"; };
 		072E2B26AEB64EC2A61946A4 /* AppLifecycleTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppLifecycleTests.swift; sourceTree = "<group>"; };
 		07CA05F6B296CA9ABBA270F8 /* TrustKit.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = TrustKit.plist; sourceTree = "<group>"; };
@@ -429,6 +432,7 @@
 		300F0EB6567454426087E83B /* IQTrendChartTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IQTrendChartTests.swift; sourceTree = "<group>"; };
 		3024C5290E1AEBB243A5EDEA /* AppStateStorage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppStateStorage.swift; sourceTree = "<group>"; };
 		31501D9D65C942EABD4F112C /* BiometricAuthManagerProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BiometricAuthManagerProtocol.swift; sourceTree = "<group>"; };
+		345251BAA6A0E3DC982BBBCC /* AppleSignInNonceContext.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppleSignInNonceContext.swift; sourceTree = "<group>"; };
 		3516CD4A60A499D8C2B07525 /* AIQApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIQApp.swift; sourceTree = "<group>"; };
 		357456A321E05BEEB93FA97C /* TimeWarningBannerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimeWarningBannerTests.swift; sourceTree = "<group>"; };
 		3619FEA286725DD4DCDFCAD8 /* TestTimerManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TestTimerManager.swift; path = Features/Test/ViewModels/TestTimerManager.swift; sourceTree = "<group>"; };
@@ -974,6 +978,7 @@
 				BTS50001AAAA00000002 /* IQScoreUtilityTests.swift */,
 				F88EC049326E86665563BD96 /* ValidatorsTests.swift */,
 				BA779FD5C6C70F48C0ACCF3C /* DI */,
+				06A9982F53CE7B992340B0A3 /* AppleSignInNonceContextTests.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -1104,6 +1109,7 @@
 				9B7DA3D24FA5595BDFEC7213 /* AccessibilityIdentifiers.swift */,
 				CB7CB297B401BB40A27456F0 /* Constants.swift */,
 				FC5B6E1198423753B6964A51 /* CrashlyticsRecorderAdapter.swift */,
+				345251BAA6A0E3DC982BBBCC /* AppleSignInNonceContext.swift */,
 			);
 			path = Helpers;
 			sourceTree = "<group>";
@@ -1852,6 +1858,7 @@
 				896A23C1AEBE9AAAB6682782 /* AdaptiveTestCoordinatorTests.swift in Sources */,
 				79449F9B9C35D41C343874DA /* QuestionNavigationGridToggleTests.swift in Sources */,
 				D0C427C0B139C3F933F5734C /* TimeWarningBannerTests.swift in Sources */,
+				9EE1751BEEF057EF028FC368 /* AppleSignInNonceContextTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2025,6 +2032,7 @@
 				5CEAEDA646779E0EAAE51E42 /* PreTestInfoGate.swift in Sources */,
 				E13F58C7A2FBCB0582A3FD52 /* SwipeBackGestureBlocker.swift in Sources */,
 				24CD540BE620E27FE947073F /* TestExitConfirmationModifier.swift in Sources */,
+				FA3C386D870C5133A388AB29 /* AppleSignInNonceContext.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,9 +1,7 @@
 import AIQSharedKit
 import AuthenticationServices
-import CryptoKit
 import GoogleSignIn
 import GoogleSignInSwift
-import Security
 import SwiftUI
 import UIKit
 
@@ -26,7 +24,7 @@ struct GuestTestContainerView: View {
     @State private var isAutoSubmitting = false
     @State private var showRegistration = false
     @State private var isGoogleSignInInFlight = false
-    @State private var currentAppleSignInNonce: String?
+    @State private var appleSignInNonce = AppleSignInNonceContext()
     @State private var guestClaimMessage: String?
     @State private var trackedGuestResultSessionIds: Set<Int> = []
 
@@ -283,11 +281,8 @@ struct GuestTestContainerView: View {
 
             SignInWithAppleButton(
                 onRequest: { request in
-                    let nonce = Self.makeNonce()
-                    currentAppleSignInNonce = nonce
+                    appleSignInNonce.prepare(request)
                     analyticsManager.trackGuestConversionStarted(path: .apple)
-                    request.requestedScopes = [.email]
-                    request.nonce = Self.sha256(nonce)
                 },
                 onCompletion: { result in
                     Task { await handleAppleSignIn(result: result) }
@@ -441,7 +436,7 @@ struct GuestTestContainerView: View {
 
     @MainActor
     private func handleAppleSignIn(result: Result<ASAuthorization, Error>) async {
-        defer { currentAppleSignInNonce = nil }
+        defer { appleSignInNonce.clear() }
 
         prepareGuestResultClaim()
         guard viewModel.guestClaimToken != nil else { return }
@@ -459,7 +454,7 @@ struct GuestTestContainerView: View {
             }
 
             do {
-                guard let nonce = currentAppleSignInNonce else {
+                guard let nonce = appleSignInNonce.consumeRawNonce() else {
                     trackGuestConversionAuthFailure(path: .apple, reason: "nonce_missing")
                     guestClaimMessage = "Apple sign-in could not be verified. Please try again."
                     return
@@ -495,31 +490,6 @@ struct GuestTestContainerView: View {
             .flatMap(\.windows)
             .first(where: \.isKeyWindow)?
             .rootViewController
-    }
-
-    private static func makeNonce(length: Int = 32) -> String {
-        precondition(length > 0)
-
-        let charset = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
-        var nonce = ""
-        nonce.reserveCapacity(length)
-
-        while nonce.count < length {
-            var randomByte: UInt8 = 0
-            let status = SecRandomCopyBytes(kSecRandomDefault, 1, &randomByte)
-            precondition(status == errSecSuccess, "Unable to generate Apple sign-in nonce")
-
-            if randomByte < charset.count {
-                nonce.append(charset[Int(randomByte)])
-            }
-        }
-
-        return nonce
-    }
-
-    private static func sha256(_ input: String) -> String {
-        let digest = SHA256.hash(data: Data(input.utf8))
-        return digest.map { String(format: "%02x", $0) }.joined()
     }
 
     private func handleTimerExpiration() {
