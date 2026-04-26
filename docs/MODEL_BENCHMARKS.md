@@ -112,6 +112,214 @@ the backend LLM benchmark cost cap table where needed.
 | Google | `gemini-3.1-pro-preview` | $1.25 | $10.00 |
 | Google | `gemini-2.5-pro` | $1.25 | $10.00 |
 
+## External Provider Benchmark Evidence
+
+This section restores the detailed public/provider benchmark evidence used by
+prior model-selection reviews. These tables are not AIQ backend benchmark
+runner output. They combine official provider announcements, public research
+benchmarks, and third-party benchmark aggregators, last reviewed in March 2026
+unless a row says otherwise.
+
+Some model IDs and selected production routes changed in the April 2026 audit
+above. Treat this section as historical evidence for domain fit, not as the
+source of truth for current production routing.
+
+### Provider Coverage in Restored Historical Evidence
+
+| Provider | Historical Default Model | Primary Use Case in March 2026 Evidence |
+|----------|--------------------------|-----------------------------------------|
+| **Anthropic** | `claude-sonnet-4-5-20250929` | Math, logic, verbal generation |
+| **Google** | `gemini-3.1-pro-preview` | Memory generation, verbal/math fallback |
+| **OpenAI** | `gpt-5.2` | Pattern and spatial generation, math/logic/verbal fallback |
+| **xAI** | `grok-4` | Judge fallback before xAI credits were exhausted |
+
+### Historical Model Comparison by Cognitive Task
+
+| Task Type | Best Model in Restored Evidence | Provider | Key Benchmark | Score |
+|-----------|---------------------------------|----------|---------------|-------|
+| **Math** | `claude-sonnet-4-5` | Anthropic | AIME 2025 + GSM8K, incomplete composite | 87% / 98% |
+| **Logic** | `claude-sonnet-4-5` | Anthropic | SWE-bench | 77-82% |
+| **Pattern** | `gpt-5.2` | OpenAI | ARC-AGI-2 | 52.9% |
+| **Spatial** | `gpt-5.2` | OpenAI | ARC-AGI-2 | 52.9% |
+| **Verbal** | `claude-sonnet-4-5` | Anthropic | HellaSwag | ~95% |
+| **Memory** | `gemini-3.1-pro-preview` | Google | MMLU + RULER + 1M context | 91.8% / 93.4% |
+
+### Mathematical Reasoning
+
+Mathematical reasoning is critical for evaluating IQ questions involving
+numerical patterns, algebraic problems, and quantitative logic.
+
+| Model | GSM8K | AIME 2024 | AIME 2025 | USAMO 2025 | MATH | FrontierMath | Composite |
+|-------|-------|-----------|-----------|------------|------|--------------|-----------|
+| **claude-sonnet-4-5** | 98.0% | - | 87.0% | - | - | - | **91.71 incomplete** |
+| `gpt-5.2` | 99.0% | - | **100%** | - | - | **40.3%** | 81.79 |
+| `gemini-3.1-pro-preview` | 98.0% | - | 95.0% | - | - | 38.0% | 78.80 |
+| `claude-opus-4-5` | 96.4% | - | 92.8% | - | 96.4% | 21.0% | 72.34 |
+| `grok-4` | 95.2% | **100%** | 93.0% | **61.9%** | - | 13.0% | 69.66 |
+| `gpt-4-turbo` | 92.0% | - | - | - | 52.9% | - | - |
+
+The Claude Sonnet composite was marked as inflated in the March 2026 review
+because FrontierMath data was missing and its 30% weight was redistributed
+across two benchmarks. If FrontierMath were approximately 20%, the true
+composite would be about 76-78, below `gpt-5.2`.
+
+**Historical selected generator:** `claude-sonnet-4-5-20250929` (Anthropic)
+**Historical judge:** `gemini-3.1-pro-preview` (Google)
+
+**Historical rationale:** Claude Sonnet 4.5 led the available March 2026
+provider evidence on AIME 2025 and GSM8K, with the caveat above that incomplete
+FrontierMath coverage could materially lower its true composite. `gpt-5.2`
+remained the fallback because it had complete benchmark coverage.
+
+### Logical Reasoning
+
+Logical reasoning benchmarks assess the ability to evaluate deductive
+reasoning, code logic, and structured problem-solving.
+
+| Model | HumanEval | GPQA Diamond | SWE-bench Verified | SWE-bench Pro | LiveCodeBench |
+|-------|-----------|--------------|--------------------|---------------|---------------|
+| **claude-sonnet-4-5** | 95.0% | 83.4% | **77-82%** | - | - |
+| `claude-opus-4-5` | 97.6% | 83.3% | 80.9% | - | - |
+| `gpt-5.2` | **95.0%** | **92.4-93.2%** | 80.0% | 55.6% | - |
+| `gemini-3.1-pro-preview` | 93.0% | 91.9% | 80.6% | - | - |
+| `gpt-4-turbo` | 87.1% | - | - | - | - |
+| `grok-4` | 88.0% | 88.0% | 72.0% | - | - |
+
+The Gemini SWE-bench Verified score was updated in March 2026 from Google's
+official announcement.
+
+**Historical selected generator:** `claude-sonnet-4-5-20250929` (Anthropic)
+**Historical judge:** `gemini-3-pro-preview` (Google)
+
+**Historical rationale:** Claude Sonnet 4.5 combined strong coding benchmark
+performance with GPQA Diamond and leading SWE-bench results, making it a good
+fit for generating questions that measure logical reasoning.
+
+### Pattern Recognition
+
+Pattern recognition benchmarks measure abstract reasoning and the ability to
+identify underlying structures.
+
+| Model | ARC-AGI-2 | ARC-AGI-2 extended mode | MMMU-Pro | Visual Reasoning |
+|-------|-----------|-------------------------|----------|------------------|
+| **`gpt-5.2`** | **52.9%** | **54.2%** (Pro) | **86.5%** | - |
+| `gemini-3-pro-preview` | 31.1% | 45.1% (Deep Think) | 81.0% | 62% |
+| `claude-opus-4-5` | 37.6% | - | 60.0% | - |
+| `claude-sonnet-4-5` | 13.6% | - | 55.0% | - |
+| `grok-4` | 16.0% | - | 59.2% | - |
+| `gpt-4-turbo` | - | - | - | - |
+
+`gpt-5.2` Pro and Gemini 3 Deep Think use extended reasoning modes that were
+not enabled in the AIQ pipeline when this evidence was reviewed.
+
+**Historical selected generator:** `gpt-5.2` (OpenAI)
+**Historical judge:** `gemini-3-pro-preview` (Google)
+
+**Historical rationale:** `gpt-5.2` had the highest ARC-AGI-2 score among the
+reviewed models, plus strong MMMU-Pro evidence. Claude Opus 4.5 was the
+historical fallback because it was the next strongest provider candidate on
+ARC-AGI-2.
+
+### Spatial Reasoning
+
+Spatial reasoning benchmarks evaluate the ability to mentally manipulate
+objects and understand spatial relationships.
+
+| Model | ARC-AGI-2 | MMMU-Pro | Visual Reasoning | Video-MMMU |
+|-------|-----------|----------|------------------|------------|
+| **`gpt-5.2`** | **52.9%** | **86.5%** | - | **90.5%** |
+| `claude-opus-4-5` | 37.6% | 60.0% | - | - |
+| `gemini-3-pro-preview` | 31.1% | 81.0% | 62% | 87.6% |
+| `grok-4` | 16.0% | 59.2% | - | - |
+| `gpt-4-turbo` | - | - | - | - |
+
+**Historical selected generator:** `gpt-5.2` (OpenAI)
+**Historical judge:** `claude-opus-4-5` (Anthropic)
+
+**Historical rationale:** `gpt-5.2` led the March 2026 spatial evidence across
+ARC-AGI-2, MMMU-Pro, and Video-MMMU. Gemini 3 Pro remained the historical
+fallback on the strength of MMMU-Pro and Video-MMMU.
+
+### Verbal Reasoning
+
+Verbal reasoning benchmarks measure language understanding, reading
+comprehension, and natural language inference.
+
+| Model | MMLU | MMLU Pro | HellaSwag | WinoGrande |
+|-------|------|----------|-----------|------------|
+| `gemini-3-pro-preview` | **91.8%** | **90.1%** | - | - |
+| `grok-4` | 92.1% | 87.0% | - | - |
+| `claude-opus-4-5` | 87.4% | 90.0% | - | - |
+| **`claude-sonnet-4-5`** | 89.0% | 78.0% | **~95%** | - |
+| `gpt-5.2` | 88.0% | 83.0% | - | - |
+| `gpt-4-turbo` | 86.4% | - | - | - |
+
+**Historical selected generator:** `claude-sonnet-4-5-20250929` (Anthropic)
+**Historical judge:** `gpt-5.2` (OpenAI)
+
+**Historical rationale:** Claude Sonnet 4.5 had strong MMLU performance and
+excellent HellaSwag evidence, while the March 2026 update changed verbal
+fallback to Google/Gemini and the judge to OpenAI to preserve cross-provider
+independence.
+
+### Memory and Knowledge
+
+Memory evaluation requires both broad knowledge and the ability to process long
+contexts.
+
+| Model | MMLU | MMLU Pro | Context Window | RULER long-context |
+|-------|------|----------|----------------|--------------------|
+| **`gemini-3.1-pro-preview`** | **91.8%** | **90.1%** | **1,000,000 tokens** | **93.4%** |
+| `gpt-5.2` | 88.0% | 83.0% | 400,000 tokens | - |
+| `grok-4` | 92.1% | 87.0% | 256,000 tokens | - |
+| `claude-sonnet-4-5` | 89.0% | 78.0% | 200,000 tokens | - |
+| `claude-opus-4-5` | 87.4% | 90.0% | 200,000 tokens | - |
+| `gpt-4-turbo` | 86.4% | - | 128,000 tokens | - |
+
+The RULER score was added in March 2026 from Artificial Analysis, improving
+the memory composite from 72.3 to 77.57 in the historical review.
+
+**Historical selected generator:** `gemini-3.1-pro-preview` (Google)
+**Historical judge:** `claude-opus-4-5` (Anthropic)
+
+**Historical rationale:** Gemini 3.1 Pro combined top MMLU/MMLU-Pro scores
+with a 1M-token context window and strong RULER evidence, giving it the best
+combination of knowledge breadth and context retention in the restored review.
+
+### Historical Cross-Provider Selection Rationale
+
+The March 2026 review used cross-provider judging: the judge for each question
+type used a different provider than the generator, and the judge fallback was
+intended to remain independent from both the primary generator and generator
+fallback when the active provider set allowed it.
+
+| Question Type | Historical Generator | Provider | Historical Judge | Provider | Historical Generator Fallback |
+|---------------|----------------------|----------|------------------|----------|-------------------------------|
+| Math | `claude-sonnet-4-5` | Anthropic | `gemini-3.1-pro-preview` | Google | OpenAI |
+| Logic | `claude-sonnet-4-5` | Anthropic | `gemini-2.5-pro` | Google | OpenAI |
+| Pattern | `gpt-5.2` | OpenAI | `gemini-2.5-pro` | Google | Anthropic |
+| Spatial | `gpt-5.2` | OpenAI | `claude-opus-4-5` | Anthropic | Google |
+| Verbal | `claude-sonnet-4-5` | Anthropic | `gpt-5.2` | OpenAI | Google |
+| Memory | `gemini-3.1-pro-preview` | Google | `claude-opus-4-5` | Anthropic | OpenAI |
+| Default | `gpt-4-turbo` | OpenAI | `gemini-2.5-pro` | Google | Anthropic |
+
+## AIQ Internal Benchmark Runs
+
+AIQ internal benchmark runs are results produced by the backend LLM benchmark
+runner (`POST /v1/admin/llm-benchmark/run`) against AIQ-owned benchmark
+question sets. They are distinct from the external provider evidence above.
+
+This April 2026 document update did not run new internal benchmarks for
+`gpt-5.5`, `claude-opus-4-7`, or the existing Google candidates. Therefore,
+the restored detailed tables above should not be cited as AIQ internal
+benchmark results. Future internal benchmark results should be added here with
+the run date, benchmark set, session ID, model, provider, score, cost, and any
+configuration notes needed to reproduce the run.
+
+| Run Date | Benchmark Set | Session ID | Provider | Model | Result Summary | Notes |
+|----------|---------------|------------|----------|-------|----------------|-------|
+| - | - | - | - | - | No April 2026 internal rerun recorded in this document. | Use backend LLM benchmark runner before claiming AIQ-measured model quality. |
+
 ## Follow-Up Benchmarking
 
 This audit updates provider availability, pricing, and stale production IDs.
@@ -125,9 +333,41 @@ backend LLM benchmark for at least:
 
 ## Sources
 
+### April 2026 Current Model Audit Sources
+
 - OpenAI, [Introducing GPT-5.5](https://openai.com/index/introducing-gpt-5-5/)
 - OpenAI, [API pricing](https://platform.openai.com/docs/pricing/)
 - Anthropic, [Introducing Claude Opus 4.7](https://www.anthropic.com/news/claude-opus-4-7)
 - Anthropic, [Claude Opus 4.7 product page](https://www.anthropic.com/claude/opus)
 - Google, [Gemini models](https://ai.google.dev/gemini-api/docs/models/gemini)
 - Google, [Gemini 3 developer guide](https://ai.google.dev/gemini-api/docs/gemini-3)
+
+### Restored Historical Public Benchmark Sources
+
+Historical benchmark evidence restored from the March 2026 version of this
+document. Last reviewed for that evidence set: March 2026.
+
+- Anthropic, [Claude Opus 4.5 Release Announcement](https://www.anthropic.com/news/claude-opus-4-5)
+- Anthropic, [Claude Sonnet 4.5 Release Announcement](https://www.anthropic.com/news/claude-sonnet-4-5)
+- Anthropic, [Claude model/product page](https://www.anthropic.com/claude)
+- Google, [Gemini 3 Release Announcement](https://blog.google/products/gemini/gemini-3/)
+- OpenAI, [GPT-4 Technical Report](https://arxiv.org/abs/2303.08774)
+- OpenAI, [GPT-5 Release Announcement](https://openai.com/index/introducing-gpt-5/)
+- OpenAI, [GPT-5.2 Release Announcement](https://openai.com/index/introducing-gpt-5-2/)
+- OpenAI, [GPT-5.2-Codex Release Announcement](https://openai.com/index/introducing-gpt-5-2-codex/)
+- xAI, [Grok 4 Announcement](https://x.ai/news/grok-4)
+- xAI, [Release notes](https://docs.x.ai/docs/release-notes)
+- [GPQA Benchmark Paper](https://arxiv.org/abs/2311.12022)
+- [SWE-bench](https://www.swebench.com/)
+- [HumanEval Benchmark](https://github.com/openai/human-eval)
+- [GSM8K Benchmark](https://github.com/openai/grade-school-math)
+- [AIME Problems and Solutions](https://artofproblemsolving.com/wiki/index.php/AIME_Problems_and_Solutions)
+- [ARC-AGI-2 Leaderboard](https://arcprize.org/leaderboard)
+- [MMMU-Pro Benchmark](https://mmmu-benchmark.github.io/)
+- [Artificial Analysis LLM Benchmarks](https://artificialanalysis.ai/)
+- [Vals.ai Benchmarks](https://www.vals.ai/benchmarks/mmlu_pro)
+- [Epoch AI FrontierMath](https://epoch.ai/benchmarks/frontiermath)
+- [Epoch AI SWE-bench Verified](https://epoch.ai/benchmarks/swe-bench-verified)
+- [LMSYS Chatbot Arena](https://chat.lmsys.org/?leaderboard)
+- [Hugging Face Open LLM Leaderboard](https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard)
+- [Automatio.ai Model Data](https://automatio.ai/)
