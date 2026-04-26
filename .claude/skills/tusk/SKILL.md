@@ -6,7 +6,9 @@ allowed-tools: Bash, Task, Read, Edit, Write, Grep, Glob
 
 # Tusk Skill
 
-The primary interface for working with tasks from the project task database (via `tusk` CLI). Use this to get the next task, start working on it, and manage the full development workflow.
+The primary interface for working with tasks from the project task database (via the PATH-resolved `tusk` CLI). Use this to get the next task, start working on it, and manage the full development workflow.
+
+The documented executable is `tusk` on `PATH`; in this project it should resolve to the repo-local wrapper. If command dispatch looks inconsistent, run `make check-tusk-wrapper` from the repo root before changing task state. To test a specific wrapper explicitly, run `make check-tusk-wrapper TUSK_EXECUTABLE=./.claude/bin/tusk`.
 
 > Use `/create-task` for task creation — handles decomposition, deduplication, criteria, and deps. Use `tusk task-insert` only for bulk/automated inserts.
 

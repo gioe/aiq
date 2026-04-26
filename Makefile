@@ -1,7 +1,8 @@
-.PHONY: benchmark benchmark-compare
+.PHONY: benchmark benchmark-compare check-tusk-wrapper
 
 API_URL ?= https://aiq-backend-production.up.railway.app
 ADMIN_TOKEN ?= $(error Set ADMIN_TOKEN=<token> or export it)
+TUSK_EXECUTABLE ?= tusk
 
 # Run LLM benchmark: generates a fixed question set, then benchmarks all primary models 3x
 # Usage: make benchmark ADMIN_TOKEN=<token> [RUNS=3]
@@ -22,3 +23,8 @@ benchmark-compare:
 	@cd question-service && python3 scripts/benchmark_compare.py \
 		--admin-token "$(ADMIN_TOKEN)" \
 		--api-url "$(API_URL)"
+
+# Verify the documented tusk executable supports commands used by agent skills.
+# Usage: make check-tusk-wrapper [TUSK_EXECUTABLE=./.claude/bin/tusk]
+check-tusk-wrapper:
+	@TUSK_EXECUTABLE="$(TUSK_EXECUTABLE)" scripts/check_tusk_wrapper_commands.sh
