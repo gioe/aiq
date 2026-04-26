@@ -21,4 +21,18 @@ final class OAuthSignInButtonsTests: XCTestCase {
             AccessibilityIdentifiers.GuestTestContainerView.signInWithGoogleButton
         )
     }
+
+    func testWelcomePlacementUsesWelcomeAccessibilityLabels() {
+        let labels = OAuthSignInButtons.Placement.welcome.labels
+
+        XCTAssertEqual(labels.apple, "Sign in with Apple")
+        XCTAssertEqual(labels.google, "Sign in with Google")
+    }
+
+    func testGuestResultsPlacementUsesContinueAccessibilityLabels() {
+        let labels = OAuthSignInButtons.Placement.guestResults.labels
+
+        XCTAssertEqual(labels.apple, "Sign in with Apple")
+        XCTAssertEqual(labels.google, "Continue with Google")
+    }
 }

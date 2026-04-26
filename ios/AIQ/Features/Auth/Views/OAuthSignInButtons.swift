@@ -11,6 +11,11 @@ struct OAuthSignInButtonIdentifiers {
     let google: String
 }
 
+struct OAuthSignInButtonLabels {
+    let apple: String
+    let google: String
+}
+
 struct OAuthSignInButtons: View {
     enum Placement {
         case welcome
@@ -30,6 +35,21 @@ struct OAuthSignInButtons: View {
                 )
             }
         }
+
+        var labels: OAuthSignInButtonLabels {
+            switch self {
+            case .welcome:
+                OAuthSignInButtonLabels(
+                    apple: "Sign in with Apple",
+                    google: "Sign in with Google"
+                )
+            case .guestResults:
+                OAuthSignInButtonLabels(
+                    apple: "Sign in with Apple",
+                    google: "Continue with Google"
+                )
+            }
+        }
     }
 
     let placement: Placement
@@ -42,6 +62,7 @@ struct OAuthSignInButtons: View {
 
     var body: some View {
         let identifiers = placement.identifiers
+        let labels = placement.labels
 
         VStack(spacing: DesignSystem.Spacing.md) {
             SignInWithAppleButton(
@@ -53,6 +74,7 @@ struct OAuthSignInButtons: View {
             .cornerRadius(DesignSystem.CornerRadius.md)
             .disabled(isDisabled)
             .accessibilityIdentifier(identifiers.apple)
+            .accessibilityLabel(labels.apple)
 
             GoogleSignInButton(
                 scheme: colorScheme == .dark ? .dark : .light,
@@ -62,6 +84,7 @@ struct OAuthSignInButtons: View {
             .frame(height: 50)
             .disabled(isDisabled)
             .accessibilityIdentifier(identifiers.google)
+            .accessibilityLabel(labels.google)
         }
     }
 }
