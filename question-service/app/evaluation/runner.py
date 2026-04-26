@@ -19,6 +19,11 @@ _TRUNCATED_DISPLAY_CHARS = 77  # 80 - len("...")
 _LEAKAGE_REJECTION_THRESHOLD = 0.1
 
 
+def _is_structured_json_parse_error(error: BaseException) -> bool:
+    """Return true for provider errors caused by malformed structured JSON."""
+    return "Failed to parse JSON response" in str(error)
+
+
 def log_rejection_details(
     evaluated_question: EvaluatedQuestion,
     logger: logging.Logger,
@@ -230,6 +235,8 @@ def run_judge_phase(
             verification_failures = 0
 
             for eq in approved_questions:
+                j_provider = "unknown"
+                effective_model = "unknown"
                 try:
                     # Resolve judge provider for this question type
                     q_type = eq.question.question_type.value
@@ -272,7 +279,24 @@ def run_judge_phase(
                             metric_type="counter",
                         )
                 except Exception as e:
-                    logger.error(f"  ✗ Verification error: {e}")
+                    is_parse_error = _is_structured_json_parse_error(e)
+                    metrics.record_verification_error(
+                        parse_error=is_parse_error,
+                        fail_open=True,
+                    )
+                    if is_parse_error:
+                        logger.warning(
+                            "VERIFICATION_PARSE_ERROR_FAIL_OPEN step=%s provider=%s model=%s "
+                            "question_type=%s difficulty=%s error=%s",
+                            "unknown",
+                            j_provider,
+                            effective_model,
+                            eq.question.question_type.value,
+                            eq.question.difficulty_level.value,
+                            str(e),
+                        )
+                    else:
+                        logger.error(f"  ✗ Verification error: {e}")
                     observability.capture_error(
                         e,
                         context={"phase": "answer_verification"},

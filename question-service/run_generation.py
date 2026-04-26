@@ -468,6 +468,11 @@ def _build_run_stats(
             round(loss / requested * 100, 1) if requested > 0 else 0.0
         ),
         "questions_rejected": summary.get("evaluation", {}).get("rejected", 0),
+        "verification_errors": summary.get("verification", {}).get("errors", 0),
+        "verification_parse_errors": summary.get("verification", {}).get(
+            "parse_errors", 0
+        ),
+        "verification_fail_open": summary.get("verification", {}).get("fail_open", 0),
         "duplicates_found": summary.get("deduplication", {}).get("duplicates_found", 0),
     }
 

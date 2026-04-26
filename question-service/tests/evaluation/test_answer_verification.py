@@ -457,6 +457,29 @@ class TestVerifyAnswer:
         with pytest.raises(RuntimeError, match="API error"):
             judge.verify_answer(sample_question, "openai", "gpt-4")
 
+    def test_final_ruling_parse_error_retries_once(self, judge, sample_question):
+        """Malformed final-ruling JSON is retried once before failing verification."""
+        provider = judge.providers["openai"]
+        provider.generate_structured_completion_with_usage.side_effect = [
+            make_completion_result(
+                {
+                    "chosen_answer": "forty-two",
+                    "confidence": 0.6,
+                    "reasoning": "Initial mismatch",
+                }
+            ),
+            make_completion_result({"action": "defend", "reasoning": "56 is right"}),
+            ValueError("Failed to parse JSON response: Expecting value"),
+            make_completion_result({"ruling": "accept", "reasoning": "Convinced"}),
+        ]
+
+        verified, details = judge.verify_answer(sample_question, "openai", "gpt-4")
+
+        assert verified is True
+        assert details["outcome"] == "defense_accepted"
+        assert details["verification_retries"] == {"final_ruling": 1}
+        assert provider.generate_structured_completion_with_usage.call_count == 4
+
 
 # ---------------------------------------------------------------------------
 # verify_answer_async tests
@@ -650,6 +673,38 @@ class TestVerifyAnswerAsync:
 
         with pytest.raises(ValueError, match="bad response"):
             await judge.verify_answer_async(sample_question, "openai", "gpt-4")
+
+    @pytest.mark.asyncio
+    async def test_final_ruling_parse_error_retries_once_async(
+        self, judge, sample_question
+    ):
+        """Async malformed final-ruling JSON is retried once before failing."""
+        provider = judge.providers["openai"]
+        provider.generate_structured_completion_with_usage_async = AsyncMock(
+            side_effect=[
+                make_completion_result(
+                    {
+                        "chosen_answer": "forty-two",
+                        "confidence": 0.6,
+                        "reasoning": "Initial mismatch",
+                    }
+                ),
+                make_completion_result(
+                    {"action": "defend", "reasoning": "56 is right"}
+                ),
+                ValueError("Failed to parse JSON response: Expecting value"),
+                make_completion_result({"ruling": "accept", "reasoning": "Convinced"}),
+            ]
+        )
+
+        verified, details = await judge.verify_answer_async(
+            sample_question, "openai", "gpt-4"
+        )
+
+        assert verified is True
+        assert details["outcome"] == "defense_accepted"
+        assert details["verification_retries"] == {"final_ruling": 1}
+        assert provider.generate_structured_completion_with_usage_async.call_count == 4
 
 
 # ---------------------------------------------------------------------------

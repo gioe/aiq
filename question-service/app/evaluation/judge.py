@@ -60,6 +60,11 @@ def _error_category(error: BaseException) -> str:
     return result or "unknown"
 
 
+def _is_structured_json_parse_error(error: BaseException) -> bool:
+    """Return true for provider errors caused by malformed structured JSON."""
+    return "Failed to parse JSON response" in str(error)
+
+
 def _safe_capture_evaluation_error(
     error: BaseException,
     *,
@@ -657,6 +662,7 @@ class QuestionJudge:
         ) as span:
             try:
                 # Step 1: Blind solve
+                verification_retries: dict[str, int] = {}
                 blind_prompt = build_blind_solve_prompt(
                     question=question.question_text,
                     answer_options=answer_options,
@@ -789,15 +795,55 @@ class QuestionJudge:
                     stimulus=question.stimulus,
                 )
 
-                ruling_result = (
-                    judge_provider.generate_structured_completion_with_usage(
-                        prompt=ruling_prompt,
-                        response_format={},
-                        temperature=temperature,
-                        max_tokens=max_tokens,
-                        model_override=judge_model_name,
+                try:
+                    ruling_result = (
+                        judge_provider.generate_structured_completion_with_usage(
+                            prompt=ruling_prompt,
+                            response_format={},
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                            model_override=judge_model_name,
+                        )
                     )
-                )
+                except Exception as e:
+                    if not _is_structured_json_parse_error(e):
+                        raise
+                    verification_retries["final_ruling"] = 1
+                    logger.warning(
+                        "VERIFICATION_PARSE_ERROR_RETRY step=%s provider=%s model=%s "
+                        "question_type=%s difficulty=%s error=%s",
+                        "final_ruling",
+                        judge_provider_name,
+                        judge_model_name,
+                        question_type,
+                        question.difficulty_level.value,
+                        str(e),
+                    )
+                    observability.record_metric(
+                        "verifier.parse_error_retry",
+                        value=1,
+                        labels={
+                            "step": "final_ruling",
+                            "provider": judge_provider_name,
+                            "question_type": question_type,
+                            "difficulty": question.difficulty_level.value,
+                        },
+                        metric_type="counter",
+                    )
+                    retry_prompt = (
+                        f"{ruling_prompt}\n\nIMPORTANT: Return only a valid JSON "
+                        "object matching the requested schema. Do not include prose "
+                        "before or after the JSON."
+                    )
+                    ruling_result = (
+                        judge_provider.generate_structured_completion_with_usage(
+                            prompt=retry_prompt,
+                            response_format={},
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                            model_override=judge_model_name,
+                        )
+                    )
 
                 ruling_response = ruling_result.content
                 ruling = ruling_response.get("ruling", "").lower()
@@ -808,33 +854,33 @@ class QuestionJudge:
                         "verifier.defense_accepted", value=1, metric_type="counter"
                     )
                     span.set_attribute("outcome", "defense_accepted")
-                    return (
-                        True,
-                        {
-                            "judge_chosen_answer": judge_chosen,
-                            "confidence": confidence,
-                            "judge_reasoning": judge_reasoning,
-                            "outcome": "defense_accepted",
-                            "generator_defense": defense_reasoning,
-                            "final_ruling_reasoning": ruling_reasoning,
-                        },
-                    )
+                    details = {
+                        "judge_chosen_answer": judge_chosen,
+                        "confidence": confidence,
+                        "judge_reasoning": judge_reasoning,
+                        "outcome": "defense_accepted",
+                        "generator_defense": defense_reasoning,
+                        "final_ruling_reasoning": ruling_reasoning,
+                    }
+                    if verification_retries:
+                        details["verification_retries"] = verification_retries
+                    return (True, details)
                 else:
                     observability.record_metric(
                         "verifier.defense_rejected", value=1, metric_type="counter"
                     )
                     span.set_attribute("outcome", "defense_rejected")
-                    return (
-                        False,
-                        {
-                            "judge_chosen_answer": judge_chosen,
-                            "confidence": confidence,
-                            "judge_reasoning": judge_reasoning,
-                            "outcome": "defense_rejected",
-                            "generator_defense": defense_reasoning,
-                            "final_ruling_reasoning": ruling_reasoning,
-                        },
-                    )
+                    details = {
+                        "judge_chosen_answer": judge_chosen,
+                        "confidence": confidence,
+                        "judge_reasoning": judge_reasoning,
+                        "outcome": "defense_rejected",
+                        "generator_defense": defense_reasoning,
+                        "final_ruling_reasoning": ruling_reasoning,
+                    }
+                    if verification_retries:
+                        details["verification_retries"] = verification_retries
+                    return (False, details)
 
             except Exception as e:
                 span.set_attribute("success", False)
@@ -884,6 +930,7 @@ class QuestionJudge:
         ) as span:
             try:
                 # Step 1: Blind solve
+                verification_retries: dict[str, int] = {}
                 blind_prompt = build_blind_solve_prompt(
                     question=question.question_text,
                     answer_options=answer_options,
@@ -1026,17 +1073,59 @@ class QuestionJudge:
                     stimulus=question.stimulus,
                 )
 
-                async with self._rate_limiter:
-                    ruling_result = await asyncio.wait_for(
-                        judge_provider.generate_structured_completion_with_usage_async(
-                            prompt=ruling_prompt,
-                            response_format={},
-                            temperature=temperature,
-                            max_tokens=max_tokens,
-                            model_override=judge_model_name,
-                        ),
-                        timeout=effective_timeout,
+                try:
+                    async with self._rate_limiter:
+                        ruling_result = await asyncio.wait_for(
+                            judge_provider.generate_structured_completion_with_usage_async(
+                                prompt=ruling_prompt,
+                                response_format={},
+                                temperature=temperature,
+                                max_tokens=max_tokens,
+                                model_override=judge_model_name,
+                            ),
+                            timeout=effective_timeout,
+                        )
+                except Exception as e:
+                    if not _is_structured_json_parse_error(e):
+                        raise
+                    verification_retries["final_ruling"] = 1
+                    logger.warning(
+                        "VERIFICATION_PARSE_ERROR_RETRY step=%s provider=%s model=%s "
+                        "question_type=%s difficulty=%s error=%s",
+                        "final_ruling",
+                        judge_provider_name,
+                        judge_model_name,
+                        question_type,
+                        question.difficulty_level.value,
+                        str(e),
                     )
+                    observability.record_metric(
+                        "verifier.parse_error_retry",
+                        value=1,
+                        labels={
+                            "step": "final_ruling",
+                            "provider": judge_provider_name,
+                            "question_type": question_type,
+                            "difficulty": question.difficulty_level.value,
+                        },
+                        metric_type="counter",
+                    )
+                    retry_prompt = (
+                        f"{ruling_prompt}\n\nIMPORTANT: Return only a valid JSON "
+                        "object matching the requested schema. Do not include prose "
+                        "before or after the JSON."
+                    )
+                    async with self._rate_limiter:
+                        ruling_result = await asyncio.wait_for(
+                            judge_provider.generate_structured_completion_with_usage_async(
+                                prompt=retry_prompt,
+                                response_format={},
+                                temperature=temperature,
+                                max_tokens=max_tokens,
+                                model_override=judge_model_name,
+                            ),
+                            timeout=effective_timeout,
+                        )
 
                 ruling_response = ruling_result.content
                 ruling = ruling_response.get("ruling", "").lower()
@@ -1047,33 +1136,33 @@ class QuestionJudge:
                         "verifier.defense_accepted", value=1, metric_type="counter"
                     )
                     span.set_attribute("outcome", "defense_accepted")
-                    return (
-                        True,
-                        {
-                            "judge_chosen_answer": judge_chosen,
-                            "confidence": confidence,
-                            "judge_reasoning": judge_reasoning,
-                            "outcome": "defense_accepted",
-                            "generator_defense": defense_reasoning,
-                            "final_ruling_reasoning": ruling_reasoning,
-                        },
-                    )
+                    details = {
+                        "judge_chosen_answer": judge_chosen,
+                        "confidence": confidence,
+                        "judge_reasoning": judge_reasoning,
+                        "outcome": "defense_accepted",
+                        "generator_defense": defense_reasoning,
+                        "final_ruling_reasoning": ruling_reasoning,
+                    }
+                    if verification_retries:
+                        details["verification_retries"] = verification_retries
+                    return (True, details)
                 else:
                     observability.record_metric(
                         "verifier.defense_rejected", value=1, metric_type="counter"
                     )
                     span.set_attribute("outcome", "defense_rejected")
-                    return (
-                        False,
-                        {
-                            "judge_chosen_answer": judge_chosen,
-                            "confidence": confidence,
-                            "judge_reasoning": judge_reasoning,
-                            "outcome": "defense_rejected",
-                            "generator_defense": defense_reasoning,
-                            "final_ruling_reasoning": ruling_reasoning,
-                        },
-                    )
+                    details = {
+                        "judge_chosen_answer": judge_chosen,
+                        "confidence": confidence,
+                        "judge_reasoning": judge_reasoning,
+                        "outcome": "defense_rejected",
+                        "generator_defense": defense_reasoning,
+                        "final_ruling_reasoning": ruling_reasoning,
+                    }
+                    if verification_retries:
+                        details["verification_retries"] = verification_retries
+                    return (False, details)
 
             except asyncio.TimeoutError:
                 span.set_attribute("success", False)

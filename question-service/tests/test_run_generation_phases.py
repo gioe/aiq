@@ -450,6 +450,58 @@ class TestRunJudgePhase:
         assert rate == pytest.approx(50.0)  # 1 approved / 2 generated
 
     @patch("app.evaluation.runner.observability")
+    def test_answer_verification_error_records_fail_open_visibility(self, mock_obs):
+        from app.reporting.run_summary import RunSummary as PipelineRunSummary
+        from run_generation import run_judge_phase
+
+        mock_obs.start_span.return_value = self._make_mock_span()
+
+        eq_approved = self._make_evaluated(0.9)
+        mock_judge = MagicMock()
+        mock_judge.evaluate_question.return_value = eq_approved
+        mock_judge.determine_difficulty_placement.return_value = (MagicMock(), None)
+        mock_judge.judge_config.get_answer_verification_enabled.return_value = True
+        mock_judge.judge_config.resolve_judge_provider.return_value = (
+            "openai",
+            "gpt-4",
+        )
+        mock_judge.providers = {"openai": MagicMock(model="gpt-4")}
+        mock_judge.verify_answer.side_effect = ValueError(
+            "Failed to parse JSON response: Expecting value"
+        )
+        logger = MagicMock()
+
+        metrics = PipelineRunSummary()
+        metrics.start_run()
+
+        approved, rejected, rate = run_judge_phase(
+            generated_questions=[MagicMock()],
+            judge=mock_judge,
+            min_score=0.7,
+            use_async_judge=False,
+            metrics=metrics,
+            logger=logger,
+        )
+
+        summary = metrics.to_summary_dict()
+        assert len(approved) == 1
+        assert len(rejected) == 0
+        assert rate == pytest.approx(100.0)
+        assert summary["verification"]["errors"] == 1
+        assert summary["verification"]["parse_errors"] == 1
+        assert summary["verification"]["fail_open"] == 1
+        logger.warning.assert_any_call(
+            "VERIFICATION_PARSE_ERROR_FAIL_OPEN step=%s provider=%s model=%s "
+            "question_type=%s difficulty=%s error=%s",
+            "unknown",
+            "openai",
+            "gpt-4",
+            eq_approved.question.question_type.value,
+            eq_approved.question.difficulty_level.value,
+            "Failed to parse JSON response: Expecting value",
+        )
+
+    @patch("app.evaluation.runner.observability")
     def test_async_judge_calls_batch_method(self, mock_obs):
         from app.reporting.run_summary import RunSummary as PipelineRunSummary
         from run_generation import run_judge_phase

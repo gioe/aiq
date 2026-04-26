@@ -40,6 +40,11 @@ class RunSummary:
     questions_rejected: int = 0
     evaluation_scores: List[float] = field(default_factory=list)
 
+    # Answer verification
+    verification_errors: int = 0
+    verification_parse_errors: int = 0
+    verification_fail_open: int = 0
+
     # Deduplication
     duplicates_found: int = 0
     exact_duplicates: int = 0
@@ -102,6 +107,14 @@ class RunSummary:
             self.api_calls_by_provider.get(provider, 0) + 1
         )
         self.total_api_calls += 1
+
+    def record_verification_error(self, *, parse_error: bool, fail_open: bool) -> None:
+        """Record an answer-verification error after judge evaluation."""
+        self.verification_errors += 1
+        if parse_error:
+            self.verification_parse_errors += 1
+        if fail_open:
+            self.verification_fail_open += 1
 
     def record_duplicate_check(
         self, is_duplicate: bool, duplicate_type: Optional[str] = None
@@ -176,6 +189,11 @@ class RunSummary:
                 ),
                 "min_score": min(eval_scores) if eval_scores else 0.0,
                 "max_score": max(eval_scores) if eval_scores else 0.0,
+            },
+            "verification": {
+                "errors": self.verification_errors,
+                "parse_errors": self.verification_parse_errors,
+                "fail_open": self.verification_fail_open,
             },
             "deduplication": {
                 "checked": self.questions_checked_for_duplicates,
