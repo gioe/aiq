@@ -45,10 +45,10 @@ class TestStripMarkdownCodeBlocks:
         assert '"key": "value"' in result
         assert '"items": [1, 2, 3]' in result
 
-    def test_no_match_partial_fences(self):
-        """Test that partial fences don't match."""
+    def test_strips_missing_closing_fence(self):
+        """Test that a missing closing fence still strips the opening fence."""
         text = '```json\n{"key": "value"}'
-        assert strip_markdown_code_blocks(text) == text
+        assert strip_markdown_code_blocks(text) == '{"key": "value"}'
 
 
 class TestSafeJsonLoads:
@@ -83,6 +83,22 @@ class TestSafeJsonLoads:
         text = '```json\n{"key": "value"}\n```'
         result = safe_json_loads(text)
         assert result == {"key": "value"}
+
+    def test_markdown_wrapped_single_json_missing_closing_fence(self):
+        """Markdown-wrapped single JSON object parses without closing fence."""
+        text = '```json\n{"key": "value"}'
+        result = safe_json_loads(text)
+        assert result == {"key": "value"}
+
+    def test_production_style_verifier_json_missing_closing_fence(self):
+        """Production-style verifier JSON parses without closing fence."""
+        text = '```json\n{"is_correct": true, "confidence": 0.91, "explanation": "matches"}'
+        result = safe_json_loads(text)
+        assert result == {
+            "is_correct": True,
+            "confidence": 0.91,
+            "explanation": "matches",
+        }
 
     def test_empty_response_raises(self):
         """Empty string raises JSONDecodeError."""

@@ -66,10 +66,13 @@ def strip_markdown_code_blocks(text: str) -> str:
     if not text:
         return text
 
-    # Pattern matches ```json or ``` at start, content, then ``` at end
-    pattern = r"^```(?:json)?\s*\n?(.*?)\n?```$"
-    match = re.match(pattern, text.strip(), re.DOTALL)
-    if match:
-        return match.group(1).strip()
+    stripped = text.strip()
+    opening_fence = re.match(r"^```(?:json)?\s*\n?", stripped)
+    if opening_fence:
+        content = stripped[opening_fence.end() :]
+        closing_fence = re.search(r"\n?```$", content)
+        if closing_fence:
+            content = content[: closing_fence.start()]
+        return content.strip()
 
     return text
