@@ -18,8 +18,11 @@ from app.services.llm_benchmark.runner import (
     _estimate_cost,
     run_llm_benchmark,
 )
-from app.services.llm_benchmark.providers import LLMResponse as ProviderResponse
-
+from app.services.llm_benchmark.providers import (
+    LLMResponse as ProviderResponse,
+    complete_anthropic,
+    complete_openai,
+)
 
 # ---------------------------------------------------------------------------
 # _normalize_answer
@@ -189,6 +192,101 @@ class TestEstimateCost:
 
     def test_zero_tokens(self):
         assert _estimate_cost("gpt-4o-mini", 0, 0) == pytest.approx(0.0)
+
+
+# ---------------------------------------------------------------------------
+# provider payloads
+# ---------------------------------------------------------------------------
+
+
+class TestProviderPayloads:
+    @pytest.mark.asyncio
+    async def test_openai_gpt55_omits_unsupported_temperature(self):
+        captured_payload = {}
+
+        class FakeResponse:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {
+                    "usage": {"prompt_tokens": 10, "completion_tokens": 2},
+                    "choices": [{"message": {"content": '{"answer": "A"}'}}],
+                    "model": "gpt-5.5",
+                }
+
+        class FakeAsyncClient:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return None
+
+            async def post(self, _url, *, json, headers):
+                captured_payload.update(json)
+                return FakeResponse()
+
+        with (
+            patch(
+                "app.services.llm_benchmark.providers.httpx.AsyncClient",
+                FakeAsyncClient,
+            ),
+            patch("app.services.llm_benchmark.providers.settings") as mock_settings,
+        ):
+            mock_settings.LLM_OPENAI_API_KEY = "placeholder"  # pragma: allowlist secret
+
+            result = await complete_openai("Question?", model="gpt-5.5")
+
+        assert result.ok
+        assert "temperature" not in captured_payload
+
+    @pytest.mark.asyncio
+    async def test_anthropic_opus47_omits_deprecated_temperature(self):
+        captured_payload = {}
+
+        class FakeResponse:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {
+                    "usage": {"input_tokens": 10, "output_tokens": 2},
+                    "content": [{"type": "text", "text": '{"answer": "A"}'}],
+                    "model": "claude-opus-4-7",
+                }
+
+        class FakeAsyncClient:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return None
+
+            async def post(self, _url, *, json, headers):
+                captured_payload.update(json)
+                return FakeResponse()
+
+        with (
+            patch(
+                "app.services.llm_benchmark.providers.httpx.AsyncClient",
+                FakeAsyncClient,
+            ),
+            patch("app.services.llm_benchmark.providers.settings") as mock_settings,
+        ):
+            mock_settings.LLM_ANTHROPIC_API_KEY = (
+                "placeholder"  # pragma: allowlist secret
+            )
+
+            result = await complete_anthropic("Question?", model="claude-opus-4-7")
+
+        assert result.ok
+        assert "temperature" not in captured_payload
 
 
 # ---------------------------------------------------------------------------

@@ -314,27 +314,30 @@ AIQ internal benchmark runs are results produced by the backend LLM benchmark
 runner (`POST /v1/admin/llm-benchmark/run`) against AIQ-owned benchmark
 question sets. They are distinct from the external provider evidence above.
 
-This April 2026 document update did not run new internal benchmarks for
-`gpt-5.5`, `claude-opus-4-7`, or the existing Google candidates. Therefore,
-the restored detailed tables above should not be cited as AIQ internal
-benchmark results. Future internal benchmark results should be added here with
-the run date, benchmark set, session ID, model, provider, score, cost, and any
-configuration notes needed to reproduce the run.
+The April 26, 2026 production benchmark pass used the backend LLM benchmark
+runner against the production benchmark tables. The admin API path still
+returned `401 Invalid admin token`, so these runs were executed through the
+backend runner with production database credentials and provider API keys.
 
-| Run Date | Benchmark Set | Session ID | Provider | Model | Result Summary | Notes |
-|----------|---------------|------------|----------|-------|----------------|-------|
-| - | - | - | - | - | No April 2026 internal rerun recorded in this document. | Use backend LLM benchmark runner before claiming AIQ-measured model quality. |
+| Run Date (UTC) | Benchmark Set | Session ID(s) | Provider | Model | Result Summary | Notes |
+|----------------|---------------|---------------|----------|-------|----------------|-------|
+| 2026-04-26 | Stratified production set, 25 questions per run | 96, 97, 98 | OpenAI | `gpt-5.5` | 3 zero-error runs; mean IQ 113.67; 71/75 correct (94.7%); latest run 24/25, IQ 114. | Runner omits `temperature` for GPT-5.5 because the API only accepts the model default. Earlier compatibility-failure sessions 93 and 94 had 25 provider errors each and are excluded. |
+| 2026-04-26 | Stratified production set, 25 questions per run | 102, 103, 104 | Anthropic | `claude-opus-4-7` | 3 zero-error runs; mean IQ 115.00; 75/75 correct (100.0%); all runs IQ 115. | Runner omits `temperature` for Claude Opus 4.7 because the API marks it deprecated. Earlier compatibility-failure sessions 99-101 had 25 provider errors each and are excluded. |
+
+Current active-model coverage checked during the same pass:
+
+| Checked Date (UTC) | Provider | Model | Existing Coverage | Result Summary | Notes |
+|--------------------|----------|-------|-------------------|----------------|-------|
+| 2026-04-26 | Anthropic | `claude-sonnet-4-5-20250929` | 9 completed runs through 2026-04-09; 8 zero-error runs. | Zero-error mean IQ 113.38; 173/186 correct (93.0%). | Coverage exists and is visible in production benchmark tables. |
+| 2026-04-26 | Google | `gemini-2.5-pro` | 10 completed runs through 2026-04-09. | Latest runs score IQ 107-109 on 30-question runs, with 22-24 correct. | Existing coverage is present but every checked run has provider response errors (typically 2-6 per session), so treat metrics as partial coverage. |
+| 2026-04-26 | Google | `gemini-3.1-pro-preview` | 8 completed runs through 2026-04-09. | Latest runs score IQ 110 on 30-question runs, with 25/30 correct. | Existing coverage is present but every checked run has provider response errors (typically 1-3 per session), so treat metrics as partial coverage. |
 
 ## Follow-Up Benchmarking
 
-This audit updates provider availability, pricing, and stale production IDs.
-It does not claim that GPT-5.5 or Claude Opus 4.7 have been re-benchmarked on
-AIQ's own cognitive question set. The next model-quality pass should run the
-backend LLM benchmark for at least:
-
-- `gpt-5.5`
-- `claude-opus-4-7`
-- current Google candidates if a Google model replacement is considered
+This audit updates provider availability, pricing, stale production IDs, and
+AIQ internal benchmark coverage for GPT-5.5 and Claude Opus 4.7. The next
+model-quality pass should rerun the current Google candidates after addressing
+their response-error rate if a Google model replacement is considered.
 
 ## Sources
 

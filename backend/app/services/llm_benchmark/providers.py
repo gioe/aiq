@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import Any
 
 import httpx
 
@@ -46,6 +47,10 @@ def _error_response(model: str, error: str) -> LLMResponse:
 
 _OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 _OPENAI_MODEL = "gpt-5.5"
+_OPENAI_DEFAULT_TEMPERATURE_ONLY_MODELS = {
+    "gpt-5.5",
+    "gpt-5.5-pro",
+}
 
 
 async def complete_openai(prompt: str, *, model: str = _OPENAI_MODEL) -> LLMResponse:
@@ -54,12 +59,13 @@ async def complete_openai(prompt: str, *, model: str = _OPENAI_MODEL) -> LLMResp
     if not api_key:
         return _error_response(model, "LLM_OPENAI_API_KEY not configured")
 
-    payload = {
+    payload: dict[str, Any] = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "response_format": {"type": "json_object"},
-        "temperature": 0,
     }
+    if model not in _OPENAI_DEFAULT_TEMPERATURE_ONLY_MODELS:
+        payload["temperature"] = 0
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -102,6 +108,9 @@ _NO_PREFILL_MODELS = {
     "claude-opus-4-6",
     "claude-opus-4-20250514",
 }
+_ANTHROPIC_DEFAULT_TEMPERATURE_ONLY_MODELS = {
+    "claude-opus-4-7",
+}
 
 
 async def complete_anthropic(
@@ -118,12 +127,13 @@ async def complete_anthropic(
     if use_prefill:
         messages.append({"role": "assistant", "content": "{"})
 
-    payload = {
+    payload: dict[str, Any] = {
         "model": model,
         "max_tokens": 1024,
-        "temperature": 0,
         "messages": messages,
     }
+    if model not in _ANTHROPIC_DEFAULT_TEMPERATURE_ONLY_MODELS:
+        payload["temperature"] = 0
     headers = {
         "x-api-key": api_key,
         "anthropic-version": "2023-06-01",
