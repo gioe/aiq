@@ -106,6 +106,25 @@ def _create_response(db, session, question_id, *, is_correct=True):
     return resp
 
 
+def _create_error_response(db, session, question_id):
+    resp = LLMResponse(
+        session_id=session.id,
+        question_id=question_id,
+        raw_answer=None,
+        normalized_answer=None,
+        is_correct=False,
+        prompt_tokens=0,
+        completion_tokens=0,
+        cost_usd=0.0,
+        latency_ms=350,
+        error="Provider payload rejected",
+    )
+    db.add(resp)
+    db.commit()
+    db.refresh(resp)
+    return resp
+
+
 # ---------------------------------------------------------------------------
 # POST /run
 # ---------------------------------------------------------------------------
@@ -457,6 +476,47 @@ class TestCompareHumanVsModels:
         assert data["human_avg_iq"] is None
         assert data["human_test_count"] == 0
         assert len(data["models"]) == 1
+
+    def test_compare_excludes_provider_error_sessions(
+        self, client, db_session, admin_headers, test_questions
+    ):
+        """Provider-error sessions cannot appear as valid model comparisons."""
+        valid_session = _create_session(db_session, model_id="gpt-5.5")
+        _create_result(
+            db_session,
+            valid_session,
+            iq_score=115,
+            total_questions=3,
+            correct_answers=3,
+            domain_scores={"logic": {"correct": 3, "total": 3}},
+        )
+        for question in test_questions[:3]:
+            _create_response(db_session, valid_session, question.id, is_correct=True)
+
+        error_session = _create_session(db_session, model_id="gpt-5.5")
+        _create_result(
+            db_session,
+            error_session,
+            iq_score=85,
+            total_questions=3,
+            correct_answers=0,
+            domain_scores={"logic": {"correct": 0, "total": 3}},
+        )
+        for question in test_questions[:3]:
+            _create_error_response(db_session, error_session, question.id)
+
+        resp = client.get("/v1/admin/llm-benchmark/compare", headers=admin_headers)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["models"]) == 1
+        model = data["models"][0]
+        assert model["model_id"] == "gpt-5.5"
+        assert model["iq_score"] == 115
+        assert model["mean_iq"] == 115
+        assert model["sessions_count"] == 1
+        assert model["total_questions"] == 3
+        assert model["correct_answers"] == 3
 
     def test_compare_no_llm_results(self, client, db_session, admin_headers, test_user):
         """Human data exists but no LLM results."""

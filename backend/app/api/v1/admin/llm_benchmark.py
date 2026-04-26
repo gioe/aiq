@@ -19,7 +19,7 @@ from sqlalchemy.orm import selectinload
 from app.core.config import settings
 from app.core.error_responses import raise_bad_request, raise_not_found
 from app.models import get_db
-from app.models.llm_benchmark import LLMTestResult, LLMTestSession
+from app.models.llm_benchmark import LLMResponse, LLMTestResult, LLMTestSession
 from app.models.models import Question, TestResult
 from app.schemas.llm_benchmark import (
     BenchmarkDetailResponse,
@@ -50,6 +50,24 @@ _MIN_HUMAN_SAMPLE_SIZE = 30
 
 _DOMAINS = list(settings.TEST_DOMAIN_WEIGHTS.keys())
 _DIFFICULTIES = list(settings.TEST_DIFFICULTY_DISTRIBUTION.keys())
+
+
+def _valid_completed_benchmark_filters():
+    """Return filters for completed benchmark sessions with no provider errors."""
+    has_provider_errors = (
+        select(LLMResponse.id)
+        .where(
+            LLMResponse.session_id == LLMTestResult.session_id,
+            LLMResponse.error.isnot(None),
+            LLMResponse.error != "",
+        )
+        .exists()
+    )
+    return (
+        LLMTestResult.iq_score.isnot(None),
+        LLMTestSession.status == "completed",
+        ~has_provider_errors,
+    )
 
 
 @router.get(
@@ -337,6 +355,8 @@ async def compare_human_vs_models(
             func.max(LLMTestResult.completed_at).label("latest_run"),
         )
         .where(LLMTestResult.iq_score.isnot(None))
+        .join(LLMTestSession, LLMTestSession.id == LLMTestResult.session_id)
+        .where(*_valid_completed_benchmark_filters())
         .group_by(LLMTestResult.vendor, LLMTestResult.model_id)
         .order_by(func.max(LLMTestResult.completed_at).desc())
     )
@@ -353,6 +373,8 @@ async def compare_human_vs_models(
                 LLMTestResult.model_id == row.model_id,
                 LLMTestResult.iq_score.isnot(None),
             )
+            .join(LLMTestSession, LLMTestSession.id == LLMTestResult.session_id)
+            .where(*_valid_completed_benchmark_filters())
             .order_by(LLMTestResult.completed_at.desc())
             .limit(1)
         )
@@ -364,6 +386,9 @@ async def compare_human_vs_models(
             LLMTestResult.model_id == row.model_id,
             LLMTestResult.iq_score.isnot(None),
         )
+        all_iq_q = all_iq_q.join(
+            LLMTestSession, LLMTestSession.id == LLMTestResult.session_id
+        ).where(*_valid_completed_benchmark_filters())
         model_iq_scores = [
             float(s)
             for s in (await db.execute(all_iq_q)).scalars().all()
@@ -395,6 +420,9 @@ async def compare_human_vs_models(
     model_domain_q = select(LLMTestResult.domain_scores).where(
         LLMTestResult.domain_scores.isnot(None)
     )
+    model_domain_q = model_domain_q.join(
+        LLMTestSession, LLMTestSession.id == LLMTestResult.session_id
+    ).where(*_valid_completed_benchmark_filters())
     model_domain_rows = (await db.execute(model_domain_q)).scalars().all()
 
     model_domain_correct: dict[str, int] = defaultdict(int)
