@@ -141,13 +141,13 @@ class AuthService: AuthServiceProtocol {
         }
     }
 
-    func loginWithApple(identityToken: String) async throws -> AuthResponse {
+    func loginWithApple(identityToken: String, nonce: String) async throws -> AuthResponse {
         #if DebugBuild
             print("[AUTH] Starting Apple OAuth exchange")
         #endif
 
         do {
-            let response = try await apiService.oauthApple(identityToken: identityToken)
+            let response = try await apiService.oauthApple(identityToken: identityToken, nonce: nonce)
 
             #if DebugBuild
                 print("[SUCCESS] Apple OAuth exchange successful")

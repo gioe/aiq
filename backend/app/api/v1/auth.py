@@ -18,6 +18,7 @@ from app.core.background_tasks import safe_background_task
 from app.models import get_db, User, OAuthIdentity
 from app.models.models import PasswordResetToken
 from app.schemas.auth import (
+    AppleOAuthTokenExchange,
     UserRegister,
     UserLogin,
     Token,
@@ -487,7 +488,7 @@ async def _exchange_oauth_token(
 
 @router.post("/oauth/apple", response_model=Token)
 async def oauth_apple_exchange(
-    payload: OAuthTokenExchange,
+    payload: AppleOAuthTokenExchange,
     request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
@@ -501,7 +502,9 @@ async def oauth_apple_exchange(
     client_ip = get_client_ip_from_request(request)
     user_agent = get_user_agent_from_request(request)
     try:
-        oauth_info = await verify_apple_identity_token(payload.identity_token)
+        oauth_info = await verify_apple_identity_token(
+            payload.identity_token, nonce=payload.nonce
+        )
     except OAuthVerificationError as exc:
         logger.warning(f"Apple OAuth verification failed: reason={exc.reason}")
         security_logger.log_auth_attempt(

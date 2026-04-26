@@ -78,9 +78,9 @@ class LoginViewModel: BaseViewModel {
     ///
     /// Errors flow through `authManager.authErrorPublisher` → `viewModel.error` so the
     /// ErrorBanner on WelcomeView surfaces cancel / network / backend-rejection paths.
-    func loginWithApple(identityToken: String) async {
+    func loginWithApple(identityToken: String, nonce: String) async {
         do {
-            try await authManager.loginWithApple(identityToken: identityToken)
+            try await authManager.loginWithApple(identityToken: identityToken, nonce: nonce)
         } catch {
             CrashlyticsErrorRecorder.recordError(error, context: .login)
         }

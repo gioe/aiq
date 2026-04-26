@@ -10,6 +10,8 @@ create the matching AIQ user.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import hmac
 import logging
 import time
 from dataclasses import dataclass
@@ -141,6 +143,7 @@ async def _verify_oidc_token(
     jwks_url: str,
     issuers: Iterable[str],
     audiences: tuple[str, ...],
+    expected_nonce_hash: Optional[str] = None,
 ) -> OAuthUserInfo:
     if not audiences:
         raise OAuthVerificationError(
@@ -203,6 +206,17 @@ async def _verify_oidc_token(
     if not subject:
         raise OAuthVerificationError("missing_subject", "Identity token missing sub")
 
+    if expected_nonce_hash is not None:
+        token_nonce = payload.get("nonce")
+        if not token_nonce:
+            raise OAuthVerificationError(
+                "missing_nonce", "Identity token missing nonce"
+            )
+        if not hmac.compare_digest(str(token_nonce), expected_nonce_hash):
+            raise OAuthVerificationError(
+                "nonce_mismatch", "Identity token nonce mismatch"
+            )
+
     email = payload.get("email")
     # Apple sends email_verified as either a bool or the string "true"/"false".
     raw_verified = payload.get("email_verified")
@@ -216,14 +230,16 @@ async def _verify_oidc_token(
     )
 
 
-async def verify_apple_identity_token(token: str) -> OAuthUserInfo:
+async def verify_apple_identity_token(token: str, *, nonce: str) -> OAuthUserInfo:
     audiences = _accepted_audiences(settings.APPLE_OAUTH_CLIENT_IDS)
+    nonce_hash = hashlib.sha256(nonce.encode("utf-8")).hexdigest()
     return await _verify_oidc_token(
         token,
         provider="apple",
         jwks_url=APPLE_JWKS_URL,
         issuers=(APPLE_ISSUER,),
         audiences=audiences,
+        expected_nonce_hash=nonce_hash,
     )
 
 

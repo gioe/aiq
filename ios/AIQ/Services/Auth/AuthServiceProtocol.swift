@@ -18,7 +18,7 @@ protocol AuthServiceProtocol: AnyObject {
     func login(email: String, password: String) async throws -> AuthResponse
 
     /// Exchange an Apple identity token for AIQ tokens and persist the session.
-    func loginWithApple(identityToken: String) async throws -> AuthResponse
+    func loginWithApple(identityToken: String, nonce: String) async throws -> AuthResponse
 
     /// Exchange a Google identity token for AIQ tokens and persist the session.
     func loginWithGoogle(identityToken: String) async throws -> AuthResponse

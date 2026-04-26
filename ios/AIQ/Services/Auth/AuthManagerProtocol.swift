@@ -38,7 +38,7 @@ protocol AuthManagerProtocol: AnyObject {
     ) async throws
 
     func login(email: String, password: String) async throws
-    func loginWithApple(identityToken: String) async throws
+    func loginWithApple(identityToken: String, nonce: String) async throws
     func loginWithGoogle(identityToken: String) async throws
     func prepareGuestResultClaim(token: String?)
     func logout() async

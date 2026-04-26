@@ -6,6 +6,7 @@ Apple's or Google's JWKS endpoints. Verifier-level behavior is covered
 separately in ``test_oauth_verifier.py``.
 """
 
+import hashlib
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -35,22 +36,30 @@ APPLE_VERIFIER = "app.api.v1.auth.verify_apple_identity_token"
 GOOGLE_VERIFIER = "app.api.v1.auth.verify_google_identity_token"
 
 
+def _apple_exchange_payload(token: str = "stubbed-apple-token") -> dict[str, str]:
+    return {"identity_token": token, "nonce": "raw-apple-nonce"}
+
+
 class TestAppleOAuthExchange:
     """POST /v1/auth/oauth/apple."""
 
     async def test_valid_apple_token_returns_aiq_tokens(
         self, async_client, async_db_session
     ):
+        verifier = AsyncMock(return_value=_oauth_info(provider="apple"))
         with patch(
             APPLE_VERIFIER,
-            new=AsyncMock(return_value=_oauth_info(provider="apple")),
+            new=verifier,
         ):
             response = await async_client.post(
                 "/v1/auth/oauth/apple",
-                json={"identity_token": "stubbed-apple-token"},
+                json=_apple_exchange_payload(),
             )
 
         assert response.status_code == 200
+        verifier.assert_awaited_once_with(
+            "stubbed-apple-token", nonce="raw-apple-nonce"
+        )
         data = response.json()
         assert data["access_token"]
         assert data["refresh_token"]
@@ -87,7 +96,7 @@ class TestAppleOAuthExchange:
         ):
             response = await async_client.post(
                 "/v1/auth/oauth/apple",
-                json={"identity_token": "malformed"},
+                json=_apple_exchange_payload("malformed"),
             )
 
         assert response.status_code == 401
@@ -102,10 +111,18 @@ class TestAppleOAuthExchange:
         ):
             response = await async_client.post(
                 "/v1/auth/oauth/apple",
-                json={"identity_token": "expired"},
+                json=_apple_exchange_payload("expired"),
             )
 
         assert response.status_code == 401
+
+    async def test_missing_apple_nonce_returns_422(self, async_client):
+        response = await async_client.post(
+            "/v1/auth/oauth/apple",
+            json={"identity_token": "stubbed-apple-token"},
+        )
+
+        assert response.status_code == 422
 
 
 class TestGoogleOAuthExchange:
@@ -172,7 +189,7 @@ class TestAccountLinking:
         with patch(APPLE_VERIFIER, new=AsyncMock(return_value=info)):
             response = await async_client.post(
                 "/v1/auth/oauth/apple",
-                json={"identity_token": "x"},
+                json=_apple_exchange_payload("x"),
             )
 
         assert response.status_code == 200
@@ -226,7 +243,7 @@ class TestAccountLinking:
         with patch(APPLE_VERIFIER, new=AsyncMock(return_value=info)):
             response = await async_client.post(
                 "/v1/auth/oauth/apple",
-                json={"identity_token": "x"},
+                json=_apple_exchange_payload("x"),
             )
 
         # Unverified email on an existing account must be refused explicitly
@@ -315,9 +332,14 @@ class TestAccountLinkingNotification:
             patch(verifier_path, new=AsyncMock(return_value=info)),
             patch(SEND_OAUTH_LINK_EMAIL, return_value=True) as mock_send,
         ):
+            payload = (
+                _apple_exchange_payload("x")
+                if provider == "apple"
+                else {"identity_token": "x"}
+            )
             response = await async_client.post(
                 endpoint,
-                json={"identity_token": "x"},
+                json=payload,
             )
 
         assert response.status_code == 200
@@ -512,7 +534,7 @@ class TestOAuthVerifierUnit:
         mod._jwks_cache._entries[mod.APPLE_JWKS_URL] = (1e18, jwks)
         with patch.object(mod.settings, "APPLE_OAUTH_CLIENT_IDS", "com.aiq.test"):
             with pytest.raises(OAuthVerificationError) as exc_info:
-                await mod.verify_apple_identity_token(token)
+                await mod.verify_apple_identity_token(token, nonce="raw-nonce")
 
         assert exc_info.value.reason == "token_expired"
 
@@ -615,6 +637,70 @@ class TestOAuthVerifierUnit:
 
         with patch.object(mod.settings, "APPLE_OAUTH_CLIENT_IDS", "com.aiq.test"):
             with pytest.raises(OAuthVerificationError) as exc_info:
-                await mod.verify_apple_identity_token(token)
+                await mod.verify_apple_identity_token(token, nonce="raw-nonce")
 
         assert exc_info.value.reason == "unsupported_alg"
+
+    async def test_apple_nonce_claim_must_match_raw_nonce_hash(self):
+        from datetime import datetime, timedelta, timezone
+
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa
+        from jose import jwt as jose_jwt
+
+        private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        private_pem = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        ).decode()
+        public_numbers = private_key.public_key().public_numbers()
+
+        def _b64(value: int) -> str:
+            import base64
+
+            length = (value.bit_length() + 7) // 8
+            return (
+                base64.urlsafe_b64encode(value.to_bytes(length, "big"))
+                .rstrip(b"=")
+                .decode()
+            )
+
+        jwks = {
+            "keys": [
+                {
+                    "kty": "RSA",
+                    "kid": "nonce-kid",
+                    "use": "sig",
+                    "alg": "RS256",
+                    "n": _b64(public_numbers.n),
+                    "e": _b64(public_numbers.e),
+                }
+            ]
+        }
+
+        now = datetime.now(timezone.utc)
+        token = jose_jwt.encode(
+            {
+                "iss": "https://appleid.apple.com",
+                "aud": "com.aiq.test",
+                "sub": "nonce-user",
+                "email": "nonce@example.com",
+                "email_verified": True,
+                "nonce": hashlib.sha256(b"expected-raw-nonce").hexdigest(),
+                "iat": int(now.timestamp()),
+                "exp": int((now + timedelta(hours=1)).timestamp()),
+            },
+            private_pem,
+            algorithm="RS256",
+            headers={"kid": "nonce-kid"},
+        )
+
+        from app.core.auth import oauth_verifier as mod
+
+        mod._jwks_cache._entries[mod.APPLE_JWKS_URL] = (1e18, jwks)
+        with patch.object(mod.settings, "APPLE_OAUTH_CLIENT_IDS", "com.aiq.test"):
+            with pytest.raises(OAuthVerificationError) as exc_info:
+                await mod.verify_apple_identity_token(token, nonce="wrong-raw-nonce")
+
+        assert exc_info.value.reason == "nonce_mismatch"

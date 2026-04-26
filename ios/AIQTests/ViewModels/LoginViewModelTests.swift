@@ -275,11 +275,12 @@ final class LoginViewModelTests: XCTestCase {
         mockAuthManager.shouldSucceedAppleLogin = true
 
         // When
-        await sut.loginWithApple(identityToken: "apple.identity.token")
+        await sut.loginWithApple(identityToken: "apple.identity.token", nonce: "raw.nonce")
 
         // Then
         XCTAssertTrue(mockAuthManager.loginWithAppleCalled, "loginWithApple should be called on authManager")
         XCTAssertEqual(mockAuthManager.lastAppleIdentityToken, "apple.identity.token")
+        XCTAssertEqual(mockAuthManager.lastAppleNonce, "raw.nonce")
         XCTAssertTrue(mockAuthManager.isAuthenticated, "user should be authenticated after success")
         XCTAssertNil(sut.error, "error should be nil after successful Apple login")
     }
@@ -289,7 +290,7 @@ final class LoginViewModelTests: XCTestCase {
         mockAuthManager.shouldSucceedAppleLogin = false
 
         // When
-        await sut.loginWithApple(identityToken: "bad.token")
+        await sut.loginWithApple(identityToken: "bad.token", nonce: "raw.nonce")
 
         // Then
         XCTAssertTrue(mockAuthManager.loginWithAppleCalled, "loginWithApple should be called")
@@ -304,7 +305,7 @@ final class LoginViewModelTests: XCTestCase {
         mockAuthManager.shouldSucceedAppleLogin = true
 
         // When
-        await sut.loginWithApple(identityToken: "apple.identity.token")
+        await sut.loginWithApple(identityToken: "apple.identity.token", nonce: "raw.nonce")
 
         // Then
         XCTAssertTrue(mockAuthManager.loginWithAppleCalled, "Apple login should not gate on form validity")

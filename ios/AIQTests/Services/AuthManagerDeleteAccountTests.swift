@@ -45,7 +45,7 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
             deviceTokenManagerFactory: { self.mockDeviceTokenManager }
         )
 
-        try await sut.loginWithApple(identityToken: "apple.identity.token")
+        try await sut.loginWithApple(identityToken: "apple.identity.token", nonce: "raw.nonce")
 
         XCTAssertEqual(mockAnalyticsManager.lastLoginProvider, SignInProvider.apple.rawValue)
         XCTAssertEqual(mockAnalyticsManager.lastLoginEmailDomain, "example.com")
@@ -75,7 +75,7 @@ final class AuthManagerDeleteAccountTests: XCTestCase {
         )
 
         sut.prepareGuestResultClaim(token: "claim-token")
-        try await sut.loginWithApple(identityToken: "apple.identity.token")
+        try await sut.loginWithApple(identityToken: "apple.identity.token", nonce: "raw.nonce")
 
         XCTAssertTrue(mockAuthService.claimGuestResultCalled)
         XCTAssertEqual(mockAuthService.lastClaimGuestToken, "claim-token")
@@ -399,7 +399,7 @@ private class MockAuthService: AuthServiceProtocol {
         return makeAuthResponse(email: loginResponseEmail)
     }
 
-    func loginWithApple(identityToken _: String) async throws -> AuthResponse {
+    func loginWithApple(identityToken _: String, nonce _: String) async throws -> AuthResponse {
         guard shouldSucceedAppleLogin else {
             throw NSError(
                 domain: "MockAuthService",

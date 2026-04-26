@@ -35,7 +35,7 @@ protocol OpenAPIServiceProtocol: Sendable {
     ) async throws -> AuthResponse
     func refreshToken() async throws -> AuthResponse
     func logout() async throws
-    func oauthApple(identityToken: String) async throws -> AuthResponse
+    func oauthApple(identityToken: String, nonce: String) async throws -> AuthResponse
     func oauthGoogle(identityToken: String) async throws -> AuthResponse
 
     // MARK: - User Profile
@@ -145,9 +145,11 @@ struct GuestClaimResponse: Decodable, Sendable {
 final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     private struct OAuthIdentityTokenRequest: Encodable {
         let identityToken: String
+        let nonce: String?
 
         enum CodingKeys: String, CodingKey {
             case identityToken = "identity_token"
+            case nonce
         }
     }
 
@@ -310,11 +312,11 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         }
     }
 
-    func oauthApple(identityToken: String) async throws -> AuthResponse {
+    func oauthApple(identityToken: String, nonce: String) async throws -> AuthResponse {
         try await exchangeOAuthIdentityToken(
             path: "/v1/auth/oauth/apple",
             operationID: "oauth_apple_exchange_v1_auth_oauth_apple_post",
-            identityToken: identityToken
+            request: OAuthIdentityTokenRequest(identityToken: identityToken, nonce: nonce)
         )
     }
 
@@ -322,7 +324,7 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         try await exchangeOAuthIdentityToken(
             path: "/v1/auth/oauth/google",
             operationID: "oauth_google_exchange_v1_auth_oauth_google_post",
-            identityToken: identityToken
+            request: OAuthIdentityTokenRequest(identityToken: identityToken, nonce: nil)
         )
     }
 
@@ -335,11 +337,11 @@ final class OpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     private func exchangeOAuthIdentityToken(
         path: String,
         operationID: String,
-        identityToken: String
+        request: OAuthIdentityTokenRequest
     ) async throws -> AuthResponse {
         do {
             return try await oauthMiddlewareClient.send(
-                input: OAuthIdentityTokenRequest(identityToken: identityToken),
+                input: request,
                 forOperation: operationID,
                 serializer: { input in
                     var request = HTTPRequest(soar_path: path, method: .post)

@@ -43,7 +43,7 @@ import Foundation
             return UITestMockData.mockAuthResponse
         }
 
-        func oauthApple(identityToken _: String) async throws -> AuthResponse {
+        func oauthApple(identityToken _: String, nonce _: String) async throws -> AuthResponse {
             try throwIfNetworkError()
             return UITestMockData.mockAuthResponse
         }

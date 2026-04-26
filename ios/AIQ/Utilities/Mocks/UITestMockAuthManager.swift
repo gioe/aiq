@@ -193,7 +193,7 @@ import Foundation
             }
         }
 
-        func loginWithApple(identityToken _: String) async throws {
+        func loginWithApple(identityToken _: String, nonce _: String) async throws {
             print("[UITestMockAuthManager] loginWithApple() called")
             isLoading = true
             authError = nil

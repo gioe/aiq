@@ -45,6 +45,7 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
     private(set) var lastLoginEmail: String?
     private(set) var lastLoginPassword: String?
     private(set) var lastOAuthAppleIdentityToken: String?
+    private(set) var lastOAuthAppleNonce: String?
     private(set) var lastOAuthGoogleIdentityToken: String?
     private(set) var lastRegisterEmail: String?
     private(set) var lastRegisterPassword: String?
@@ -153,9 +154,10 @@ final class MockOpenAPIService: OpenAPIServiceProtocol, @unchecked Sendable {
         return response
     }
 
-    func oauthApple(identityToken: String) async throws -> AuthResponse {
+    func oauthApple(identityToken: String, nonce: String) async throws -> AuthResponse {
         oauthAppleCalled = true
         lastOAuthAppleIdentityToken = identityToken
+        lastOAuthAppleNonce = nonce
         if let error = oauthAppleError { throw error }
         guard let response = oauthAppleResponse else {
             throw NSError(domain: "MockOpenAPIService", code: -1, userInfo: [

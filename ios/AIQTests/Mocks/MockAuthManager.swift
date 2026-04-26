@@ -56,6 +56,7 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
     var lastLoginEmail: String?
     var lastLoginPassword: String?
     var lastAppleIdentityToken: String?
+    var lastAppleNonce: String?
     var lastGoogleIdentityToken: String?
     var lastRegisterEmail: String?
     var lastRegisterPassword: String?
@@ -158,9 +159,10 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
         }
     }
 
-    func loginWithApple(identityToken: String) async throws {
+    func loginWithApple(identityToken: String, nonce: String) async throws {
         loginWithAppleCalled = true
         lastAppleIdentityToken = identityToken
+        lastAppleNonce = nonce
 
         isLoading = true
         authError = nil
@@ -303,6 +305,7 @@ class MockAuthManager: ObservableObject, AuthManagerProtocol {
         lastLoginEmail = nil
         lastLoginPassword = nil
         lastAppleIdentityToken = nil
+        lastAppleNonce = nil
         lastGoogleIdentityToken = nil
         lastRegisterEmail = nil
         lastRegisterPassword = nil

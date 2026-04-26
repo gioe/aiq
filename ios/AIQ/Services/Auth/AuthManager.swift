@@ -246,7 +246,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
     /// Matches the password-login error-handling contract so any failure (verification rejection,
     /// network error, etc.) wipes loading state and surfaces a `ContextualError.login` — leaving
     /// the UI on WelcomeView with a clear error and no partial session state.
-    func loginWithApple(identityToken: String) async throws {
+    func loginWithApple(identityToken: String, nonce: String) async throws {
         isLoading = true
         authError = nil
 
@@ -255,7 +255,7 @@ class AuthManager: ObservableObject, AuthManagerProtocol {
         let startTime = CFAbsoluteTimeGetCurrent()
 
         do {
-            let response = try await authService.loginWithApple(identityToken: identityToken)
+            let response = try await authService.loginWithApple(identityToken: identityToken, nonce: nonce)
 
             let elapsed = CFAbsoluteTimeGetCurrent() - startTime
             signposter.endInterval("Auth.LoginWithApple", state)
