@@ -34,13 +34,34 @@ enum MockModeDetector {
     /// Environment variable key for mock scenario selection
     static let scenarioEnvironmentKey = "MOCK_SCENARIO"
 
+    /// Environment variables XCTest injects into host-app unit test launches.
+    private static let unitTestEnvironmentKeys = [
+        "XCTestConfigurationFilePath",
+        "XCTestSessionIdentifier"
+    ]
+
+    /// Returns true when the app process is the host for an XCTest unit test bundle.
+    ///
+    /// Host-app unit tests execute the real SwiftUI app launch path, but they do not pass
+    /// `-UITestMockMode`. Treating XCTest launches as mock mode prevents app-start services
+    /// from using production-backed dependencies during local verification.
+    static var isUnitTest: Bool {
+        #if DebugBuild
+            return unitTestEnvironmentKeys.contains { key in
+                ProcessInfo.processInfo.environment[key] != nil
+            }
+        #else
+            return false
+        #endif
+    }
+
     /// Returns true if the app was launched with mock mode enabled
     ///
-    /// This checks for the `-UITestMockMode` launch argument.
+    /// This checks for the `-UITestMockMode` launch argument or a host-app unit test launch.
     /// Only available in DEBUG builds.
     static var isMockMode: Bool {
         #if DebugBuild
-            return CommandLine.arguments.contains(mockModeArgument)
+            return CommandLine.arguments.contains(mockModeArgument) || isUnitTest
         #else
             return false
         #endif

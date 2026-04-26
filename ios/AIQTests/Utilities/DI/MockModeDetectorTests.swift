@@ -51,7 +51,7 @@ final class MockModeDetectorTests: XCTestCase {
 
     func testMockScenarioCount() {
         // Verify the expected number of scenarios
-        XCTAssertEqual(MockScenario.allCases.count, 16, "Should have exactly 16 mock scenarios")
+        XCTAssertEqual(MockScenario.allCases.count, 18, "Should have exactly 18 mock scenarios")
     }
 
     // MARK: - MockModeDetector Constants Tests
@@ -75,19 +75,25 @@ final class MockModeDetectorTests: XCTestCase {
     // MARK: - isMockMode Tests
 
     func testIsMockModeReturnsBooleanType() {
-        // Just verify it returns a boolean - the actual value depends on launch args
-        // In unit tests running without -UITestMockMode, this should be false
-        let isMockMode = MockModeDetector.isMockMode
-        XCTAssertFalse(isMockMode, "Should be false when not launched with mock mode argument")
+        XCTAssertTrue(
+            MockModeDetector.isMockMode,
+            "Host-app unit test launches should use mock mode even without the UI test launch argument"
+        )
+    }
+
+    func testIsUnitTestDetectedFromXCTestEnvironment() {
+        XCTAssertTrue(
+            MockModeDetector.isUnitTest,
+            "Unit test execution should be detected from XCTest environment"
+        )
     }
 
     // MARK: - currentScenario Tests
 
     func testCurrentScenarioReturnsDefaultWhenNotInMockMode() {
-        // When not in mock mode, should always return default
-        // This test runs in unit test environment without -UITestMockMode
+        // Unit tests run in mock mode by default, with no explicit scenario configured.
         let scenario = MockModeDetector.currentScenario
-        XCTAssertEqual(scenario, .default, "Should return default scenario when not in mock mode")
+        XCTAssertEqual(scenario, .default, "Should return default scenario when no scenario is configured")
     }
 
     // MARK: - logStatus Tests
