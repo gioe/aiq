@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth.dependencies import get_current_user
 from app.core.cache import cache_key as generate_cache_key, get_cache
 from app.models import User, get_db
-from app.models.llm_benchmark import LLMTestResult
+from app.models.llm_benchmark import LLMResponse, LLMTestResult, LLMTestSession
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +71,24 @@ _MODEL_DISPLAY_NAMES: dict[str, str] = {
 def _display_name(model_id: str) -> str:
     """Return a human-friendly display name for a model ID."""
     return _MODEL_DISPLAY_NAMES.get(model_id, model_id)
+
+
+def _valid_completed_benchmark_filters():
+    """Return filters for completed benchmark sessions with no provider errors."""
+    has_provider_errors = (
+        select(LLMResponse.id)
+        .where(
+            LLMResponse.session_id == LLMTestResult.session_id,
+            LLMResponse.error.isnot(None),
+            LLMResponse.error != "",
+        )
+        .exists()
+    )
+    return (
+        LLMTestResult.iq_score.isnot(None),
+        LLMTestSession.status == "completed",
+        ~has_provider_errors,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -155,7 +173,8 @@ async def get_benchmark_summary(
             func.sum(LLMTestResult.total_questions).label("total_questions"),
             func.sum(LLMTestResult.correct_answers).label("correct_answers"),
         )
-        .where(LLMTestResult.iq_score.isnot(None))
+        .join(LLMTestSession, LLMTestSession.id == LLMTestResult.session_id)
+        .where(*_valid_completed_benchmark_filters())
         .group_by(LLMTestResult.vendor, LLMTestResult.model_id)
         .having(func.count(LLMTestResult.id) >= min_runs)
     )
@@ -167,8 +186,10 @@ async def get_benchmark_summary(
         all_iq_q = select(LLMTestResult.iq_score).where(
             LLMTestResult.vendor == row.vendor,
             LLMTestResult.model_id == row.model_id,
-            LLMTestResult.iq_score.isnot(None),
         )
+        all_iq_q = all_iq_q.join(
+            LLMTestSession, LLMTestSession.id == LLMTestResult.session_id
+        ).where(*_valid_completed_benchmark_filters())
         model_iq_scores = [
             float(s)
             for s in (await db.execute(all_iq_q)).scalars().all()
@@ -187,6 +208,9 @@ async def get_benchmark_summary(
             LLMTestResult.model_id == row.model_id,
             LLMTestResult.domain_scores.isnot(None),
         )
+        domain_q = domain_q.join(
+            LLMTestSession, LLMTestSession.id == LLMTestResult.session_id
+        ).where(*_valid_completed_benchmark_filters())
         domain_rows = (await db.execute(domain_q)).scalars().all()
 
         domain_correct: dict[str, int] = defaultdict(int)

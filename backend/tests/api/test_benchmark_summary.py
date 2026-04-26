@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import pytest
 
 from app.core.cache import get_cache
-from app.models.llm_benchmark import LLMTestResult, LLMTestSession
+from app.models.llm_benchmark import LLMResponse, LLMTestResult, LLMTestSession
 
 
 # ---------------------------------------------------------------------------
@@ -24,6 +24,8 @@ def _create_benchmark_run(
     total_questions=20,
     correct_answers=15,
     domain_scores=None,
+    response_errors=None,
+    question_ids=None,
 ):
     """Create a completed benchmark session + result pair."""
     ts = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -61,6 +63,27 @@ def _create_benchmark_run(
     db.add(result)
     db.commit()
     db.refresh(result)
+
+    if response_errors is not None:
+        if question_ids is None:
+            raise ValueError("question_ids are required when creating responses")
+        for index, question_id in enumerate(question_ids):
+            has_error = index < response_errors
+            response = LLMResponse(
+                session_id=session.id,
+                question_id=question_id,
+                raw_answer=None if has_error else "B",
+                normalized_answer=None if has_error else "B",
+                is_correct=False if has_error else index < correct_answers,
+                prompt_tokens=0,
+                completion_tokens=0,
+                cost_usd=0.0,
+                latency_ms=100,
+                error="provider compatibility error" if has_error else None,
+            )
+            db.add(response)
+        db.commit()
+
     return session, result
 
 
@@ -221,3 +244,113 @@ class TestBenchmarkSummary:
         assert resp2.status_code == 200
         # Should still show only 1 model (cached)
         assert len(resp2.json()["models"]) == 1
+
+    def test_excludes_all_error_benchmark_sessions(
+        self, client, db_session, auth_headers, test_questions
+    ):
+        """All-error compatibility-failure sessions do not contribute to summary."""
+        question_ids = [q.id for q in test_questions[:3]]
+
+        for _ in range(3):
+            _create_benchmark_run(
+                db_session,
+                vendor="openai",
+                model_id="gpt-5.5",
+                iq_score=114,
+                total_questions=3,
+                correct_answers=3,
+                domain_scores={"pattern": {"correct": 3, "total": 3}},
+                response_errors=0,
+                question_ids=question_ids,
+            )
+
+        for _ in range(2):
+            _create_benchmark_run(
+                db_session,
+                vendor="openai",
+                model_id="gpt-5.5",
+                iq_score=85,
+                total_questions=3,
+                correct_answers=0,
+                domain_scores={"pattern": {"correct": 0, "total": 3}},
+                response_errors=3,
+                question_ids=question_ids,
+            )
+
+        resp = client.get("/v1/benchmark/summary", headers=auth_headers)
+        assert resp.status_code == 200
+
+        model = resp.json()["models"][0]
+        assert model["display_name"] == "GPT-5.5"
+        assert model["runs"] == 3
+        assert model["mean_iq"] == pytest.approx(114.0)
+        assert model["accuracy_pct"] == pytest.approx(100.0)
+        assert model["domain_accuracy"][0]["accuracy_pct"] == pytest.approx(100.0)
+        assert model["domain_accuracy"][0]["total_questions"] == 9
+
+    def test_all_invalid_sessions_do_not_satisfy_min_runs(
+        self, client, db_session, auth_headers, test_questions
+    ):
+        """A model with only provider-error sessions is hidden from the app."""
+        question_ids = [q.id for q in test_questions[:3]]
+
+        for _ in range(3):
+            _create_benchmark_run(
+                db_session,
+                vendor="anthropic",
+                model_id="claude-opus-4-7",
+                iq_score=85,
+                total_questions=3,
+                correct_answers=0,
+                response_errors=3,
+                question_ids=question_ids,
+            )
+
+        resp = client.get(
+            "/v1/benchmark/summary", headers=auth_headers, params={"min_runs": 1}
+        )
+        assert resp.status_code == 200
+        assert resp.json()["models"] == []
+
+    def test_partial_error_session_is_excluded_from_mixed_history(
+        self, client, db_session, auth_headers, test_questions
+    ):
+        """Only zero-error completed sessions contribute to public model averages."""
+        question_ids = [q.id for q in test_questions[:3]]
+
+        for _ in range(3):
+            _create_benchmark_run(
+                db_session,
+                vendor="anthropic",
+                model_id="claude-opus-4-7",
+                iq_score=115,
+                total_questions=3,
+                correct_answers=3,
+                domain_scores={"logic": {"correct": 3, "total": 3}},
+                response_errors=0,
+                question_ids=question_ids,
+            )
+
+        _create_benchmark_run(
+            db_session,
+            vendor="anthropic",
+            model_id="claude-opus-4-7",
+            iq_score=95,
+            total_questions=3,
+            correct_answers=1,
+            domain_scores={"logic": {"correct": 1, "total": 3}},
+            response_errors=1,
+            question_ids=question_ids,
+        )
+
+        resp = client.get("/v1/benchmark/summary", headers=auth_headers)
+        assert resp.status_code == 200
+
+        model = resp.json()["models"][0]
+        assert model["display_name"] == "Claude Opus 4.7"
+        assert model["runs"] == 3
+        assert model["mean_iq"] == pytest.approx(115.0)
+        assert model["accuracy_pct"] == pytest.approx(100.0)
+        assert model["domain_accuracy"] == [
+            {"domain": "logic", "accuracy_pct": 100.0, "total_questions": 9}
+        ]
