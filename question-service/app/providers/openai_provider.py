@@ -15,6 +15,15 @@ from .base import BaseLLMProvider
 logger = logging.getLogger(__name__)
 
 
+def _structured_prompt(prompt: str, response_format: Dict[str, Any]) -> str:
+    if not response_format:
+        return prompt
+    return (
+        f"{prompt}\n\n"
+        f"Respond with valid JSON matching this schema: {json.dumps(response_format)}"
+    )
+
+
 class OpenAIProvider(BaseLLMProvider):
     """OpenAI API integration for question generation and evaluation."""
 
@@ -291,8 +300,7 @@ class OpenAIProvider(BaseLLMProvider):
 
         def _make_request() -> CompletionResult:
             try:
-                # Add JSON mode instruction to the prompt
-                json_prompt = f"{prompt}\n\nRespond with valid JSON matching this schema: {json.dumps(response_format)}"
+                json_prompt = _structured_prompt(prompt, response_format)
 
                 response = self.client.chat.completions.create(  # type: ignore[call-overload]
                     model=model_to_use,
@@ -402,8 +410,7 @@ class OpenAIProvider(BaseLLMProvider):
 
         async def _make_request() -> CompletionResult:
             try:
-                # Add JSON mode instruction to the prompt
-                json_prompt = f"{prompt}\n\nRespond with valid JSON matching this schema: {json.dumps(response_format)}"
+                json_prompt = _structured_prompt(prompt, response_format)
 
                 response = await self.async_client.chat.completions.create(  # type: ignore[call-overload]
                     model=model_to_use,

@@ -19,6 +19,16 @@ logger = logging.getLogger(__name__)
 ANTHROPIC_MODELS: list[str] = get_known_models("anthropic")
 
 
+def _structured_prompt(prompt: str, response_format: Dict[str, Any]) -> str:
+    if not response_format:
+        return prompt
+    return (
+        f"{prompt}\n\n"
+        f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
+        f"Your response must be only valid JSON with no additional text."
+    )
+
+
 class AnthropicProvider(BaseLLMProvider):
     """Anthropic API integration for question generation and evaluation."""
 
@@ -265,12 +275,7 @@ class AnthropicProvider(BaseLLMProvider):
 
         def _make_request() -> CompletionResult:
             try:
-                # Add JSON formatting instruction to the prompt
-                json_prompt = (
-                    f"{prompt}\n\n"
-                    f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
-                    f"Your response must be only valid JSON with no additional text."
-                )
+                json_prompt = _structured_prompt(prompt, response_format)
 
                 response = self.client.messages.create(
                     model=model_to_use,
@@ -391,12 +396,7 @@ class AnthropicProvider(BaseLLMProvider):
 
         async def _make_request() -> CompletionResult:
             try:
-                # Add JSON formatting instruction to the prompt
-                json_prompt = (
-                    f"{prompt}\n\n"
-                    f"Respond with valid JSON matching this schema: {json.dumps(response_format)}\n"
-                    f"Your response must be only valid JSON with no additional text."
-                )
+                json_prompt = _structured_prompt(prompt, response_format)
 
                 response = await self.async_client.messages.create(
                     model=model_to_use,
