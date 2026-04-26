@@ -21,6 +21,7 @@ from app.services.llm_benchmark.runner import (
 from app.services.llm_benchmark.providers import (
     LLMResponse as ProviderResponse,
     complete_anthropic,
+    complete_google,
     complete_openai,
 )
 
@@ -287,6 +288,212 @@ class TestProviderPayloads:
 
         assert result.ok
         assert "temperature" not in captured_payload
+
+    @pytest.mark.asyncio
+    async def test_google_uses_extended_timeout_for_reasoning_models(self):
+        captured_payload = {}
+        captured_timeout = None
+
+        class FakeResponse:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {
+                    "usageMetadata": {
+                        "promptTokenCount": 10,
+                        "candidatesTokenCount": 2,
+                    },
+                    "candidates": [
+                        {"content": {"parts": [{"text": '{"answer": "A"}'}]}}
+                    ],
+                }
+
+        class FakeAsyncClient:
+            def __init__(self, *args, timeout=None, **kwargs):
+                nonlocal captured_timeout
+                captured_timeout = timeout
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return None
+
+            async def post(self, _url, *, json, headers):
+                captured_payload.update(json)
+                return FakeResponse()
+
+        with (
+            patch(
+                "app.services.llm_benchmark.providers.httpx.AsyncClient",
+                FakeAsyncClient,
+            ),
+            patch("app.services.llm_benchmark.providers.settings") as mock_settings,
+        ):
+            mock_settings.LLM_GOOGLE_API_KEY = "placeholder"  # pragma: allowlist secret
+
+            result = await complete_google("Question?", model="gemini-2.5-pro")
+
+        assert result.ok
+        assert captured_timeout.read == pytest.approx(120.0)
+        assert captured_payload["generationConfig"] == {
+            "temperature": 0,
+            "responseMimeType": "application/json",
+        }
+
+    @pytest.mark.asyncio
+    async def test_google_gemini3_uses_low_thinking_level(self):
+        captured_payload = {}
+
+        class FakeResponse:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {
+                    "usageMetadata": {
+                        "promptTokenCount": 10,
+                        "candidatesTokenCount": 2,
+                    },
+                    "candidates": [
+                        {"content": {"parts": [{"text": '{"answer": "A"}'}]}}
+                    ],
+                }
+
+        class FakeAsyncClient:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return None
+
+            async def post(self, _url, *, json, headers):
+                captured_payload.update(json)
+                return FakeResponse()
+
+        with (
+            patch(
+                "app.services.llm_benchmark.providers.httpx.AsyncClient",
+                FakeAsyncClient,
+            ),
+            patch("app.services.llm_benchmark.providers.settings") as mock_settings,
+        ):
+            mock_settings.LLM_GOOGLE_API_KEY = "placeholder"  # pragma: allowlist secret
+
+            result = await complete_google("Question?", model="gemini-3.1-pro-preview")
+
+        assert result.ok
+        assert captured_payload["generationConfig"] == {
+            "temperature": 0,
+            "responseMimeType": "application/json",
+            "thinkingConfig": {"thinkingLevel": "low"},
+        }
+
+    @pytest.mark.asyncio
+    async def test_google_retries_transient_503(self):
+        attempts = 0
+
+        class FakeResponse:
+            status_code = 503
+            text = "temporary high demand"
+
+            def raise_for_status(self):
+                nonlocal attempts
+                attempts += 1
+                if attempts == 1:
+                    import httpx
+
+                    request = httpx.Request("POST", "https://example.test")
+                    response = httpx.Response(
+                        503,
+                        request=request,
+                        text="temporary high demand",
+                    )
+                    raise httpx.HTTPStatusError(
+                        "Server error", request=request, response=response
+                    )
+
+            def json(self):
+                return {
+                    "usageMetadata": {
+                        "promptTokenCount": 10,
+                        "candidatesTokenCount": 2,
+                    },
+                    "candidates": [
+                        {"content": {"parts": [{"text": '{"answer": "A"}'}]}}
+                    ],
+                }
+
+        class FakeAsyncClient:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return None
+
+            async def post(self, _url, *, json, headers):
+                return FakeResponse()
+
+        with (
+            patch(
+                "app.services.llm_benchmark.providers.httpx.AsyncClient",
+                FakeAsyncClient,
+            ),
+            patch(
+                "app.services.llm_benchmark.providers.asyncio.sleep",
+                new_callable=AsyncMock,
+            ) as mock_sleep,
+            patch("app.services.llm_benchmark.providers.settings") as mock_settings,
+        ):
+            mock_settings.LLM_GOOGLE_API_KEY = "placeholder"  # pragma: allowlist secret
+
+            result = await complete_google("Question?", model="gemini-2.5-pro")
+
+        assert result.ok
+        assert attempts == 2
+        mock_sleep.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_google_timeout_error_includes_exception_class(self):
+        import httpx
+
+        class FakeAsyncClient:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return None
+
+            async def post(self, _url, *, json, headers):
+                raise httpx.ReadTimeout("")
+
+        with (
+            patch(
+                "app.services.llm_benchmark.providers.httpx.AsyncClient",
+                FakeAsyncClient,
+            ),
+            patch(
+                "app.services.llm_benchmark.providers.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
+            patch("app.services.llm_benchmark.providers.settings") as mock_settings,
+        ):
+            mock_settings.LLM_GOOGLE_API_KEY = "placeholder"  # pragma: allowlist secret
+
+            result = await complete_google("Question?", model="gemini-2.5-pro")
+
+        assert not result.ok
+        assert result.error == "Google request failed (ReadTimeout)"
 
 
 # ---------------------------------------------------------------------------

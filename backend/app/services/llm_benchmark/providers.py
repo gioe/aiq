@@ -7,6 +7,7 @@ plus token usage. Uses httpx directly — no vendor SDK dependency.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from typing import Any
@@ -176,6 +177,34 @@ async def complete_anthropic(
 
 _GOOGLE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 _GOOGLE_MODEL = "gemini-3.1-pro-preview"
+_GOOGLE_TIMEOUT = httpx.Timeout(120.0, connect=10.0)
+_GOOGLE_MAX_ATTEMPTS = 3
+_GOOGLE_RETRY_STATUS_CODES = {429, 500, 502, 503, 504}
+
+
+def _format_http_error(provider: str, exc: httpx.HTTPStatusError) -> str:
+    return f"{provider} API error {exc.response.status_code}: {exc.response.text[:200]}"
+
+
+def _format_request_error(provider: str, exc: httpx.HTTPError) -> str:
+    detail = str(exc)
+    if detail:
+        return f"{provider} request failed ({type(exc).__name__}): {detail}"
+    return f"{provider} request failed ({type(exc).__name__})"
+
+
+def _google_retry_delay(attempt: int) -> float:
+    return min(2 ** (attempt - 1), 4)
+
+
+def _google_generation_config(model: str) -> dict[str, Any]:
+    config: dict[str, Any] = {
+        "temperature": 0,
+        "responseMimeType": "application/json",
+    }
+    if model.startswith("gemini-3"):
+        config["thinkingConfig"] = {"thinkingLevel": "low"}
+    return config
 
 
 async def complete_google(prompt: str, *, model: str = _GOOGLE_MODEL) -> LLMResponse:
@@ -187,31 +216,62 @@ async def complete_google(prompt: str, *, model: str = _GOOGLE_MODEL) -> LLMResp
     url = f"{_GOOGLE_URL}/{model}:generateContent?key={api_key}"
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0, "responseMimeType": "application/json"},
+        "generationConfig": _google_generation_config(model),
     }
     headers = {"Content-Type": "application/json"}
 
-    try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-            resp = await client.post(url, json=payload, headers=headers)
-            resp.raise_for_status()
-            data = resp.json()
+    for attempt in range(1, _GOOGLE_MAX_ATTEMPTS + 1):
+        try:
+            async with httpx.AsyncClient(timeout=_GOOGLE_TIMEOUT) as client:
+                resp = await client.post(url, json=payload, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
 
-        usage = data.get("usageMetadata", {})
-        candidates = data.get("candidates", [{}])
-        parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
-        text = "".join(p.get("text", "") for p in parts)
-        return LLMResponse(
-            answer=text,
-            input_tokens=usage.get("promptTokenCount", 0),
-            output_tokens=usage.get("candidatesTokenCount", 0),
-            model=model,
-        )
-    except httpx.HTTPStatusError as exc:
-        msg = f"Google API error {exc.response.status_code}: {exc.response.text[:200]}"
-        logger.error(msg)
-        return _error_response(model, msg)
-    except httpx.HTTPError as exc:
-        msg = f"Google request failed: {exc}"
-        logger.error(msg)
-        return _error_response(model, msg)
+            usage = data.get("usageMetadata", {})
+            candidates = data.get("candidates", [{}])
+            parts = (
+                candidates[0].get("content", {}).get("parts", []) if candidates else []
+            )
+            text = "".join(p.get("text", "") for p in parts)
+            return LLMResponse(
+                answer=text,
+                input_tokens=usage.get("promptTokenCount", 0),
+                output_tokens=usage.get("candidatesTokenCount", 0),
+                model=model,
+            )
+        except httpx.HTTPStatusError as exc:
+            msg = _format_http_error("Google", exc)
+            should_retry = (
+                exc.response.status_code in _GOOGLE_RETRY_STATUS_CODES
+                and attempt < _GOOGLE_MAX_ATTEMPTS
+            )
+            if should_retry:
+                logger.warning(
+                    "%s Retrying Google benchmark request (%d/%d).",
+                    msg,
+                    attempt + 1,
+                    _GOOGLE_MAX_ATTEMPTS,
+                )
+                await asyncio.sleep(_google_retry_delay(attempt))
+                continue
+            logger.error(msg)
+            return _error_response(model, msg)
+        except httpx.TimeoutException as exc:
+            msg = _format_request_error("Google", exc)
+            if attempt < _GOOGLE_MAX_ATTEMPTS:
+                logger.warning(
+                    "%s Retrying Google benchmark request (%d/%d).",
+                    msg,
+                    attempt + 1,
+                    _GOOGLE_MAX_ATTEMPTS,
+                )
+                await asyncio.sleep(_google_retry_delay(attempt))
+                continue
+            logger.error(msg)
+            return _error_response(model, msg)
+        except httpx.HTTPError as exc:
+            msg = _format_request_error("Google", exc)
+            logger.error(msg)
+            return _error_response(model, msg)
+
+    return _error_response(model, "Google request failed after retries")

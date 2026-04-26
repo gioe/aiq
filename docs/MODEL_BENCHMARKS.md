@@ -332,6 +332,16 @@ Current active-model coverage checked during the same pass:
 | 2026-04-26 | Google | `gemini-2.5-pro` | 10 completed runs through 2026-04-09. | Latest runs score IQ 107-109 on 30-question runs, with 22-24 correct. | Existing coverage is present but every checked run has provider response errors (typically 2-6 per session), so treat metrics as partial coverage. |
 | 2026-04-26 | Google | `gemini-3.1-pro-preview` | 8 completed runs through 2026-04-09. | Latest runs score IQ 110 on 30-question runs, with 25/30 correct. | Existing coverage is present but every checked run has provider response errors (typically 1-3 per session), so treat metrics as partial coverage. |
 
+April 26 follow-up investigation found the Google errors were not caused by
+prompt format, JSON MIME mode, safety filtering, model availability, or quota.
+Stored failures were either transient Google 503 high-demand responses or
+benchmark-runner read timeouts on reasoning-heavy prompts. The local patched
+runner reproduced the slow `gemini-2.5-pro` and `gemini-3.1-pro-preview` cases
+without provider errors by using a longer Google timeout, transient retries,
+and low Gemini 3 thinking. The production coverage rows above remain partial
+until the patched runner is deployed and clean production benchmark sessions are
+recorded.
+
 ## Follow-Up Benchmarking
 
 This audit updates provider availability, pricing, stale production IDs, and
