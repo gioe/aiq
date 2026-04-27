@@ -69,8 +69,8 @@ struct OAuthSignInButtons: View {
                 onCompletion: onAppleCompletion
             )
             .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-            .frame(height: 50)
-            .cornerRadius(DesignSystem.CornerRadius.md)
+            .frame(height: 40)
+            .cornerRadius(OAuthBrandButtonMetrics.cornerRadius)
             .disabled(isDisabled)
             .accessibilityIdentifier(identifiers.apple)
             .accessibilityLabel(labels.apple)
@@ -147,14 +147,19 @@ private struct GoogleBrandSignInButton: View {
             .frame(maxWidth: .infinity)
             .background(fillColor)
             .overlay(
-                Capsule()
+                RoundedRectangle(cornerRadius: OAuthBrandButtonMetrics.cornerRadius)
                     .stroke(strokeColor, lineWidth: 1)
             )
-            .clipShape(Capsule())
+            .clipShape(RoundedRectangle(cornerRadius: OAuthBrandButtonMetrics.cornerRadius))
             .opacity(isEnabled ? 1 : 0.6)
         }
         .buttonStyle(.plain)
     }
+}
+
+private enum OAuthBrandButtonMetrics {
+    static let height: CGFloat = 40
+    static let cornerRadius: CGFloat = height / 2
 }
 
 enum OAuthSignInSupport {
