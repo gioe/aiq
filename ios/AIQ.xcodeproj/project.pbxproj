@@ -2444,7 +2444,7 @@
 			repositoryURL = "https://github.com/gioe/ios-libs";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 1.4.0;
+				minimumVersion = 1.9.1;
 			};
 		};
 		E0C01234567890ABCDEF0001 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
