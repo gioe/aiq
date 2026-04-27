@@ -1,7 +1,6 @@
 import AIQSharedKit
 import AuthenticationServices
 import CryptoKit
-import GoogleSignInSwift
 import Security
 import SwiftUI
 import UIKit
@@ -76,16 +75,85 @@ struct OAuthSignInButtons: View {
             .accessibilityIdentifier(identifiers.apple)
             .accessibilityLabel(labels.apple)
 
-            GoogleSignInButton(
+            GoogleBrandSignInButton(
+                title: labels.google,
                 scheme: colorScheme == .dark ? .dark : .light,
-                style: .wide,
                 action: onGoogleSignIn
             )
-            .frame(height: 50)
             .disabled(isDisabled)
             .accessibilityIdentifier(identifiers.google)
             .accessibilityLabel(labels.google)
         }
+    }
+}
+
+private struct GoogleBrandSignInButton: View {
+    enum Scheme {
+        case light
+        case dark
+    }
+
+    let title: String
+    let scheme: Scheme
+    let action: () -> Void
+
+    @Environment(\.isEnabled) private var isEnabled
+
+    private var fillColor: Color {
+        switch scheme {
+        case .light:
+            Color(red: 1, green: 1, blue: 1)
+        case .dark:
+            Color(red: 0.0745, green: 0.0745, blue: 0.0784)
+        }
+    }
+
+    private var strokeColor: Color {
+        switch scheme {
+        case .light:
+            Color(red: 0.4549, green: 0.4667, blue: 0.4588)
+        case .dark:
+            Color(red: 0.5569, green: 0.5686, blue: 0.5608)
+        }
+    }
+
+    private var titleColor: Color {
+        switch scheme {
+        case .light:
+            Color(red: 0.1216, green: 0.1216, blue: 0.1216)
+        case .dark:
+            Color(red: 0.8902, green: 0.8902, blue: 0.8902)
+        }
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image("GoogleGLogo")
+                    .resizable()
+                    .frame(width: 20, height: 20)
+                    .accessibilityHidden(true)
+
+                Text(title)
+                    .font(.custom("Roboto-Medium", size: 14, relativeTo: .body))
+                    .fontWeight(.medium)
+                    .foregroundColor(titleColor)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .padding(.leading, 16)
+            .padding(.trailing, 16)
+            .frame(height: 40)
+            .frame(maxWidth: .infinity)
+            .background(fillColor)
+            .overlay(
+                Capsule()
+                    .stroke(strokeColor, lineWidth: 1)
+            )
+            .clipShape(Capsule())
+            .opacity(isEnabled ? 1 : 0.6)
+        }
+        .buttonStyle(.plain)
     }
 }
 

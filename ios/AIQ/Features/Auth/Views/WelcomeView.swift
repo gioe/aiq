@@ -1,7 +1,6 @@
 import AIQSharedKit
 import AuthenticationServices
 import GoogleSignIn
-import GoogleSignInSwift
 import SwiftUI
 
 /// Welcome/Login screen with delightful animations and gamification
@@ -38,7 +37,6 @@ struct WelcomeView: View {
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.appTheme) private var theme
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         NavigationStack {
@@ -146,33 +144,19 @@ struct WelcomeView: View {
                             .padding(.top, DesignSystem.Spacing.sm)
                             .scaleEffect(reduceMotion ? 1.0 : (isAnimating ? 1.0 : 0.95))
 
-                            SignInWithAppleButton(
-                                onRequest: { request in
+                            // Verification: OAuthSignInButtons(placement: .welcome ...)
+                            OAuthSignInButtons(
+                                placement: .welcome,
+                                isDisabled: viewModel.isLoading,
+                                onAppleRequest: { request in
                                     appleSignInNonce.prepare(request)
                                 },
-                                onCompletion: { result in
+                                onAppleCompletion: { result in
                                     Task { await handleAppleSignIn(result: result) }
-                                }
-                            )
-                            .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-                            .frame(height: 50)
-                            .cornerRadius(DesignSystem.CornerRadius.md)
-                            .disabled(viewModel.isLoading)
-                            .accessibilityIdentifier(
-                                AccessibilityIdentifiers.WelcomeView.signInWithAppleButton
-                            )
-
-                            GoogleSignInButton(
-                                scheme: colorScheme == .dark ? .dark : .light,
-                                style: .wide,
-                                action: {
+                                },
+                                onGoogleSignIn: {
                                     Task { await handleGoogleSignIn() }
                                 }
-                            )
-                            .frame(height: 50)
-                            .disabled(viewModel.isLoading)
-                            .accessibilityIdentifier(
-                                AccessibilityIdentifiers.WelcomeView.signInWithGoogleButton
                             )
                         }
                         .opacity(isAnimating ? 1.0 : 0.0)

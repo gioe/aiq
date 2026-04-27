@@ -1,7 +1,6 @@
 import AIQSharedKit
 import AuthenticationServices
 import GoogleSignIn
-import GoogleSignInSwift
 import SwiftUI
 import UIKit
 
@@ -279,30 +278,22 @@ struct GuestTestContainerView: View {
                     .multilineTextAlignment(.center)
             }
 
-            SignInWithAppleButton(
-                onRequest: { request in
+            // Verification: OAuthSignInButtons(placement: .guestResults ...)
+            OAuthSignInButtons(
+                placement: .guestResults,
+                isDisabled: false,
+                onAppleRequest: { request in
                     appleSignInNonce.prepare(request)
                     analyticsManager.trackGuestConversionStarted(path: .apple)
                 },
-                onCompletion: { result in
+                onAppleCompletion: { result in
                     Task { await handleAppleSignIn(result: result) }
-                }
-            )
-            .signInWithAppleButtonStyle(.black)
-            .frame(height: 50)
-            .cornerRadius(DesignSystem.CornerRadius.md)
-            .accessibilityIdentifier(AccessibilityIdentifiers.GuestTestContainerView.signInWithAppleButton)
-
-            GoogleSignInButton(
-                scheme: .light,
-                style: .wide,
-                action: {
+                },
+                onGoogleSignIn: {
                     analyticsManager.trackGuestConversionStarted(path: .google)
                     Task { await handleGoogleSignIn() }
                 }
             )
-            .frame(height: 50)
-            .accessibilityIdentifier(AccessibilityIdentifiers.GuestTestContainerView.signInWithGoogleButton)
 
             PrimaryButton(
                 title: "Create Account",
