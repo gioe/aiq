@@ -44,6 +44,7 @@ DEFAULT_ASYNC_TIMEOUT_SECONDS = 60.0  # Timeout for individual async evaluation 
 DEFAULT_FALLBACK_TIMEOUT_SECONDS = (
     30.0  # Independent timeout for fallback provider calls
 )
+ANSWER_VERIFICATION_MAX_TOKENS = 2000
 
 
 def _error_category(error: BaseException) -> str:
@@ -636,7 +637,7 @@ class QuestionJudge:
         judge_provider_name: str,
         judge_model_name: str,
         temperature: float = 0.1,
-        max_tokens: int = 800,
+        max_tokens: int = ANSWER_VERIFICATION_MAX_TOKENS,
     ) -> tuple[bool, dict]:
         question_type = question.question_type.value
         answer_options = question.answer_options
@@ -902,7 +903,7 @@ class QuestionJudge:
         judge_provider_name: str,
         judge_model_name: str,
         temperature: float = 0.1,
-        max_tokens: int = 800,
+        max_tokens: int = ANSWER_VERIFICATION_MAX_TOKENS,
         timeout: Optional[float] = None,
     ) -> tuple[bool, dict]:
         question_type = question.question_type.value

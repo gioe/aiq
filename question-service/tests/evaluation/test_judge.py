@@ -347,6 +347,12 @@ class TestQuestionJudge:
 
         # Verify provider was called
         mock_provider.generate_structured_completion_with_usage.assert_called_once()
+        assert (
+            mock_provider.generate_structured_completion_with_usage.call_args.kwargs[
+                "max_tokens"
+            ]
+            == 500
+        )
 
     @patch("app.evaluation.judge.OpenAIProvider")
     def test_evaluate_question_below_threshold(

@@ -9,7 +9,7 @@ import pytest
 from unittest.mock import AsyncMock, Mock, patch
 
 from app.observability.cost_tracking import CompletionResult
-from app.evaluation.judge import QuestionJudge
+from app.evaluation.judge import ANSWER_VERIFICATION_MAX_TOKENS, QuestionJudge
 from app.config.judge_config import (
     DifficultyPlacement,
     JudgeConfig,
@@ -246,6 +246,50 @@ class TestPromptBuilders:
 # ---------------------------------------------------------------------------
 class TestVerifyAnswer:
     """Tests for QuestionJudge.verify_answer (sync)."""
+
+    def test_uses_verification_token_budget_by_default(self, judge, sample_question):
+        """Verification gets enough output budget for long structured reasoning."""
+        provider = judge.providers["openai"]
+        provider.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(
+                {
+                    "chosen_answer": "fifty-six",
+                    "confidence": 0.95,
+                    "reasoning": "7*8=56",
+                }
+            )
+        )
+
+        judge.verify_answer(sample_question, "openai", "gpt-4")
+
+        assert (
+            provider.generate_structured_completion_with_usage.call_args.kwargs[
+                "max_tokens"
+            ]
+            == ANSWER_VERIFICATION_MAX_TOKENS
+        )
+
+    def test_respects_explicit_verification_token_budget(self, judge, sample_question):
+        """Callers can still lower or raise the verifier budget explicitly."""
+        provider = judge.providers["openai"]
+        provider.generate_structured_completion_with_usage.return_value = (
+            make_completion_result(
+                {
+                    "chosen_answer": "fifty-six",
+                    "confidence": 0.95,
+                    "reasoning": "7*8=56",
+                }
+            )
+        )
+
+        judge.verify_answer(sample_question, "openai", "gpt-4", max_tokens=1200)
+
+        assert (
+            provider.generate_structured_completion_with_usage.call_args.kwargs[
+                "max_tokens"
+            ]
+            == 1200
+        )
 
     def test_pass_judge_agrees(self, judge, sample_question):
         """Judge's blind-solve matches the marked answer → pass."""
@@ -486,6 +530,31 @@ class TestVerifyAnswer:
 # ---------------------------------------------------------------------------
 class TestVerifyAnswerAsync:
     """Tests for QuestionJudge.verify_answer_async."""
+
+    @pytest.mark.asyncio
+    async def test_uses_verification_token_budget_by_default_async(
+        self, judge, sample_question
+    ):
+        """Async verification uses the same larger structured-output budget."""
+        provider = judge.providers["openai"]
+        provider.generate_structured_completion_with_usage_async = AsyncMock(
+            return_value=make_completion_result(
+                {
+                    "chosen_answer": "fifty-six",
+                    "confidence": 0.95,
+                    "reasoning": "7*8=56",
+                }
+            )
+        )
+
+        await judge.verify_answer_async(sample_question, "openai", "gpt-4")
+
+        assert (
+            provider.generate_structured_completion_with_usage_async.call_args.kwargs[
+                "max_tokens"
+            ]
+            == ANSWER_VERIFICATION_MAX_TOKENS
+        )
 
     @pytest.mark.asyncio
     async def test_pass_async(self, judge, sample_question):
