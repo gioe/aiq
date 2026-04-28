@@ -62,6 +62,158 @@ def _has_remote(name: str = "origin") -> bool:
     return result.returncode == 0
 
 
+def _local_default_unpushed_commits(default_branch: str) -> list[tuple[str, str]] | None:
+    """Return [(sha, subject), ...] for commits on local <default_branch> that are
+    not yet on origin/<default_branch>.
+
+    Returns None when the comparison can't be performed (e.g. origin/<default> ref
+    is missing because the repo has never fetched). Empty list means nothing unpushed.
+    """
+    rev_parse = run(
+        ["git", "rev-parse", "--verify", f"refs/remotes/origin/{default_branch}"],
+        check=False,
+    )
+    if rev_parse.returncode != 0:
+        return None
+    log = run(
+        ["git", "log", "--format=%h %s",
+         f"refs/remotes/origin/{default_branch}..{default_branch}"],
+        check=False,
+    )
+    if log.returncode != 0:
+        return None
+    commits: list[tuple[str, str]] = []
+    for raw in log.stdout.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        parts = line.split(" ", 1)
+        commits.append((parts[0], parts[1] if len(parts) > 1 else ""))
+    return commits
+
+
+def _confirm_proceed_with_unpushed(
+    commits: list[tuple[str, str]], default_branch: str, task_id: int
+) -> bool:
+    """Surface unpushed commits on local default and ask whether to push them
+    alongside this merge, abort, or drop them.
+
+    Returns True to proceed with the merge, False to abort. The 'd' (drop) branch
+    runs `git fetch origin && git reset --hard origin/<default>` after the user
+    types the full word 'drop' to confirm, then returns False so the caller
+    re-runs `tusk merge` against the now-clean default.
+
+    In a non-interactive context (no TTY on stdin) always returns False — silently
+    shipping unaudited commits is the bug this guard exists to prevent (issue #607).
+    """
+    print(
+        f"\nWarning: local '{default_branch}' is ahead of "
+        f"'origin/{default_branch}' by {len(commits)} commit(s) that did not "
+        f"come from this feature branch. They would be pushed as silent "
+        f"passengers of TASK-{task_id} if the merge proceeds:",
+        file=sys.stderr,
+    )
+    for sha, subject in commits:
+        print(f"  {sha}  {subject}", file=sys.stderr)
+
+    if not sys.stdin.isatty():
+        print(
+            f"\nAborting: refusing to push the commits above as part of "
+            f"TASK-{task_id} without an interactive confirmation. To resolve:\n"
+            f"  - Push them yourself first: git push origin {default_branch}\n"
+            f"  - Or drop them: git fetch origin && "
+            f"git reset --hard origin/{default_branch}\n"
+            f"Then re-run: tusk merge {task_id}",
+            file=sys.stderr,
+        )
+        return False
+
+    print(
+        f"\nProceed with this TASK-{task_id} merge?\n"
+        f"  [y] push the commits above as part of this merge\n"
+        f"  [n] abort (default)\n"
+        f"  [d] drop the commits — runs git fetch origin && "
+        f"git reset --hard origin/{default_branch}\n"
+        f"[y/n/d] ",
+        end="",
+        file=sys.stderr,
+        flush=True,
+    )
+    answer = sys.stdin.readline().strip().lower()
+    if answer in ("y", "yes"):
+        return True
+    if answer == "d":
+        return _drop_unpushed_commits(commits, default_branch, task_id)
+    print(
+        f"Aborting. To resolve manually:\n"
+        f"  - Push them: git push origin {default_branch}\n"
+        f"  - Drop them: git fetch origin && "
+        f"git reset --hard origin/{default_branch}\n"
+        f"Then re-run: tusk merge {task_id}",
+        file=sys.stderr,
+    )
+    return False
+
+
+def _drop_unpushed_commits(
+    commits: list[tuple[str, str]], default_branch: str, task_id: int
+) -> bool:
+    """Run the destructive drop path after a typed-word confirmation.
+
+    Requires the user to type the full word 'drop' (case-insensitive) before
+    invoking `git fetch origin && git reset --hard origin/<default>`. Always
+    returns False — even on success the merge does not proceed; the caller
+    re-runs `tusk merge` against the now-clean default branch.
+    """
+    print(
+        f"\nThis will run: git fetch origin && "
+        f"git reset --hard origin/{default_branch}\n"
+        f"It will permanently discard the {len(commits)} unpushed commit(s) above "
+        f"on local '{default_branch}'.\n"
+        f"Type 'drop' to confirm (anything else aborts): ",
+        end="",
+        file=sys.stderr,
+        flush=True,
+    )
+    confirmation = sys.stdin.readline().strip()
+    if confirmation.lower() != "drop":
+        print(
+            f"Aborted — typed {confirmation!r}, expected 'drop'. "
+            f"No changes made.",
+            file=sys.stderr,
+        )
+        return False
+
+    fetch = run(["git", "fetch", "origin"], check=False)
+    if fetch.returncode != 0:
+        print(
+            f"Aborted — 'git fetch origin' failed:\n{fetch.stderr}",
+            file=sys.stderr,
+        )
+        return False
+
+    reset = run(
+        ["git", "reset", "--hard", f"origin/{default_branch}"], check=False
+    )
+    if reset.returncode != 0:
+        print(
+            f"Aborted — 'git reset --hard origin/{default_branch}' failed:\n"
+            f"{reset.stderr}",
+            file=sys.stderr,
+        )
+        return False
+
+    head = run(["git", "rev-parse", "HEAD"], check=False)
+    new_head = head.stdout.strip() if head.returncode == 0 else "(unknown)"
+    print(
+        f"Dropped {len(commits)} unpushed commit(s) on local "
+        f"'{default_branch}'. HEAD is now {new_head}.\n"
+        f"Re-run: tusk merge {task_id}",
+        file=sys.stderr,
+    )
+    return False
+
+
 # Generated lockfiles whose conflicts are always safe to auto-resolve by preferring
 # the stash (WIP) version — these files are fully regenerated by their respective
 # package managers and carry no hand-authored content.
@@ -745,6 +897,19 @@ def main(argv: list[str]) -> int:
                 file=sys.stderr,
             )
 
+        # Guard (issue #607): refuse to silently push unrelated commits that snuck
+        # onto local <default_branch> from a prior session. Runs before any path-
+        # specific logic so it covers rebase, ff-only, and task_on_default merges
+        # uniformly — all three reach the same `git push origin <default>` step.
+        if has_origin:
+            unpushed = _local_default_unpushed_commits(default_branch)
+            if unpushed:
+                if not _confirm_proceed_with_unpushed(unpushed, default_branch, task_id):
+                    run(["git", "checkout", branch_name], check=False)
+                    if did_stash:
+                        _try_pop_stash(task_id)
+                    return 2
+
         # Detect zero-new-commits case first: feature branch has no exclusive commits
         # over the default branch. Legitimate for triage-only tasks whose deliverable
         # was a follow-up task creation (or any task that closed without code changes).
@@ -851,27 +1016,26 @@ def main(argv: list[str]) -> int:
             if rebase_result.returncode != 0:
                 if rebase_result.stderr.strip():
                     print(rebase_result.stderr.strip(), file=sys.stderr)
+                stash_note = ""
+                if did_stash:
+                    stash_note = (
+                        f"\nNote: your pre-merge working-tree changes are saved in stash "
+                        f"entry 'tusk-merge: auto-stash for TASK-{task_id}'. "
+                        "Restore them with `git stash list` + `git stash pop <ref>` "
+                        "after the rebase completes."
+                    )
                 print(
                     f"Error: git rebase {default_branch} failed — conflicts must be resolved manually.\n"
-                    "To resolve:\n"
-                    "  1. Fix the conflicting files\n"
+                    f"You are on '{branch_name}' with the rebase in progress. To finish:\n"
+                    "  1. Fix the conflicting files (git status lists them)\n"
                     "  2. git add <resolved files>\n"
                     "  3. git rebase --continue\n"
-                    f"  4. Repeat until rebase completes, then re-run: tusk merge {task_id}\n"
-                    "To abort and return to the pre-rebase state:\n"
-                    "  git rebase --abort",
+                    "  4. Repeat steps 1–3 until the rebase completes\n"
+                    f"  5. Re-run: tusk merge {task_id}\n"
+                    "To abort the rebase and return to the pre-rebase state:\n"
+                    f"  git rebase --abort{stash_note}",
                     file=sys.stderr,
                 )
-                run(["git", "rebase", "--abort"], check=False)
-                for src, dst in zip(db_siblings, db_tmp):
-                    if os.path.exists(src):
-                        os.rename(src, dst)
-                run(["git", "checkout", default_branch], check=False)
-                for src, dst in zip(db_siblings, db_tmp):
-                    if os.path.exists(dst):
-                        os.rename(dst, src)
-                if did_stash:
-                    _try_pop_stash(task_id)
                 return 2
 
             # Rebase succeeded — switch back to default branch for ff-only merge

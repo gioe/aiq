@@ -76,31 +76,39 @@ Scan the issue body for a `## Failing Test` section. If present:
    Before showing the approval prompt, identify the spec's *effective* first token — the executable that will actually run. For most specs this is just the first whitespace-delimited token. But specs wrapped in `bash -c '<body>'` or `sh -c '<body>'` are a recurring pattern in tusk's own issue templates (any regression spec that chains `tusk init && tusk task-insert ...` ends up wrapped this way), and the outer `bash`/`sh` is always on `/usr/bin:/bin` — checking it would always pass the fast-path and force the sandbox to run a wrapper whose inner project-tool calls would just exit 127. When the wrapper pattern is detected, peel it off and check the wrapper body's first token instead:
 
    ```bash
-   FIRST_TOKEN=$(printf '%s' "$TEST_SPEC" | awk '{print $1; exit}')
-   SECOND_TOKEN=$(printf '%s' "$TEST_SPEC" | awk '{print $2; exit}')
+   FIRST_TOKEN=$(printf '%s' "$TEST_SPEC" | awk '!/^[[:space:]]*#/ {print $1; exit}')
+   SECOND_TOKEN=$(printf '%s' "$TEST_SPEC" | awk '!/^[[:space:]]*#/ {print $2; exit}')
    if [[ ("$FIRST_TOKEN" == "bash" || "$FIRST_TOKEN" == "sh") && "$SECOND_TOKEN" == "-c" ]]; then
      # Wrapper detected. The body is the third positional arg, normally surrounded
      # by single or double quotes; strip them, then take its first token.
      WRAPPER_BODY=$(printf '%s' "$TEST_SPEC" | awk '{$1=""; $2=""; sub(/^ +/, ""); print}')
      WRAPPER_BODY=${WRAPPER_BODY#[\'\"]}
      WRAPPER_BODY=${WRAPPER_BODY%[\'\"]}
-     CHECK_TOKEN=$(printf '%s' "$WRAPPER_BODY" | awk '{print $1; exit}')
+     CHECK_TOKEN=$(printf '%s' "$WRAPPER_BODY" | awk '!/^[[:space:]]*#/ {print $1; exit}')
    else
      CHECK_TOKEN="$FIRST_TOKEN"
    fi
-   if ! PATH=/usr/bin:/bin command -v "$CHECK_TOKEN" >/dev/null 2>&1; then
+   # GOTCHA (Issue #589): `command -v` special-cases path-containing names
+   # (anything with a `/`) by checking the file relative to cwd — bypassing PATH
+   # entirely. For relative paths like `bin/tusk`, `command -v` resolves against
+   # the orchestrator's cwd (the project root) and reports success, but the
+   # sandbox tempdir won't have that file and would exit 127. Short-circuit any
+   # `/`-containing token to skip the sandbox directly without consulting
+   # `command -v`.
+   if [[ "$CHECK_TOKEN" == */* ]] || ! PATH=/usr/bin:/bin command -v "$CHECK_TOKEN" >/dev/null 2>&1; then
      # Effective token is unreachable on the sandbox PATH; the sandbox would exit 127.
-     # Skip the approval prompt and the sandbox run; treat as no failing test.
+     # Skip the approval prompt and the sandbox run, but score as "unverifiable" — the
+     # author still supplied a concrete reproducer; we just can't validate it here.
      test_spec=null
-     test_present="no"
+     test_present="unverifiable"
    fi
    ```
 
-   The check is a pure path-resolution lookup — `command -v` reports whether `<token>` exists on `PATH=/usr/bin:/bin` without invoking it, so the spec is never executed at this stage.
+   The check is a pure path-resolution lookup. The `*/*` glob short-circuits any token containing `/` (relative path like `bin/tusk` or absolute path) before invoking `command -v` — without it, `command -v bin/tusk` from the project root would report success against the cwd-relative file and bypass PATH entirely, even though the sandbox tempdir cannot reach that path (Issue #589). For bare command names, `command -v` reports whether `<token>` exists on `PATH=/usr/bin:/bin` without invoking it, so the spec is never executed at this stage.
 
-   On skip, set `test_spec = null`, score `test_present` as `"no"`, surface this one-line note, and proceed as if no `## Failing Test` section were found (item 3 below):
+   On skip, set `test_spec = null`, score `test_present` as `"unverifiable"`, do not add a test criterion in Step 6, and surface this one-line note. Do **not** route to item 3 below — that path is reserved for the section-absent case (`test_present="no"`). The `"unverifiable"` value exists because the author still supplied a concrete reproducer; we just can't run it under the sandbox's safety constraints, so the score sits between `"yes"` and `"no"` in `config.default.json` (`issue_scoring.factors.test_present`).
 
-   > Spec invokes a non-PATH tool (`<token>`); skipping sandbox (would exit 127). Failing-test verification deferred to `tusk criteria done` after task creation.
+   > Spec invokes a non-PATH tool or path-referenced executable (`<token>`); skipping sandbox (would exit 127). Scoring `test_present` as `unverifiable` (the spec exists but can't be validated here). Failing-test verification deferred to `tusk criteria done` after task creation.
 
    When the wrapper-detection branch fires, `<token>` is the *inner* token (e.g. `tusk`) — not `bash`/`sh` — so the note correctly points at the actual unreachable executable.
 
@@ -114,7 +122,7 @@ Scan the issue body for a `## Failing Test` section. If present:
    > ```
    > **Options:** `run` (execute in sandbox), `skip` (do not execute — treat as `test_spec = null`).
 
-   Wait for the user's response. Treat anything other than an explicit `run` as `skip`. On skip, set `test_spec = null`, score `test_present` as `"no"`, and proceed as if no `## Failing Test` section were found (item 3 below) — do not run the command.
+   Wait for the user's response. Treat anything other than an explicit `run` as `skip`. On skip, set `test_spec = null`, score `test_present` as `"unverifiable"`, do not add a test criterion in Step 6, and do not run the command. The `"unverifiable"` value applies because the `## Failing Test` section was syntactically present in the issue body — the user simply chose not to sandbox-validate it; the score (defined in `config.default.json` `issue_scoring.factors.test_present`) sits between `"yes"` (sandbox-validated) and `"no"` (section absent). Do **not** route to item 3 below — that path is reserved for the section-absent case (`test_present="no"`).
 
    **c. On approval, execute the spec in an isolated sandbox:**
 
@@ -191,7 +199,7 @@ Evaluate each factor and look up its score contribution from `factors`:
 
 | Factor key | Condition to evaluate | Value key |
 |---|---|---|
-| `test_present` | Was a `## Failing Test` section found in Step 4.1? **Only evaluate for `bug` and `defect` task types.** For all other task types (`docs`, `feature`, `refactor`, etc.), treat as N/A: contribution = 0 regardless of presence or absence. | `"yes"` / `"no"` |
+| `test_present` | Result from Step 4.1. Section absent → `"no"`. Section present and the spec was sandbox-executed to a non-zero exit (without a command-error signature) → `"yes"`. Section present but the spec was *not* sandbox-executed (Step 4.1.a fast-path skip for an off-PATH effective first token, or Step 4.1.b user-typed skip) → `"unverifiable"` — the issue author supplied a concrete reproducer but it can't be validated under the sandbox's safety constraints. Section present and the spec was sandbox-executed but produced a command error (exit 126/127 from inside the body, or stderr containing `command not found` / `syntax error`) → `"no"` — distinct from the skip path because the spec was actually run and demonstrably malformed, not merely unsandboxable. **Only evaluate for `bug` and `defect` task types.** For all other task types (`docs`, `feature`, `refactor`, etc.), treat as N/A: contribution = 0 regardless of value. | `"yes"` / `"no"` / `"unverifiable"` |
 | `pillar_aligned` | Does the issue align with the project pillars (run `tusk pillars list` to fetch `[{id, name, core_claim}]`)? If the list is empty, skip (contribution = 0). | `"yes"` / `"no"` |
 | `duplicate` | Is an open task already covering this issue (from Step 3 backlog)? Include the task ID in the rationale if yes. | `"yes"` / `"no"` |
 | `in_scope` | Does the issue fit the project's stated purpose? | `"yes"` / `"no"` |
@@ -219,6 +227,8 @@ Open with a **Model Recommendation** block (including the score breakdown from S
 > **Recommendation: <Address / Defer / Decline>** — <1–2 sentence rationale from Step 4.7>
 >
 > **Score:** test_present: <±N>, pillar_aligned: <±N>, duplicate: <±N>, in_scope: <±N>, severity_high: <±N>, issue_quality: <±N> → **total: <N>** (Address ≥ <thresholds.address>, Decline ≤ <thresholds.decline>)
+
+When `test_present` is `"unverifiable"`, suffix that contribution with the value key in the rendered Score line — e.g. `test_present: +1 (unverifiable)` — so readers can tell it apart from the binary `"yes"` (+2) and `"no"` (-1) cases. The other factors are binary and need no annotation.
 
 ## Proposed Task from Issue #<N>
 

@@ -3,11 +3,16 @@
 
 Ports the /tusk-init Claude Code skill into a CLI subcommand so Codex users
 (and non-interactive automation) can configure tusk/config.json without
-hand-editing. Orchestrates the existing helper scripts:
+hand-editing. Safe to re-run on an existing project: the wizard updates
+`tusk/config.json` and refreshes validation triggers via
+`tusk regen-triggers`, but never touches task data — rows in `tasks`,
+`acceptance_criteria`, `task_sessions`, and `skill_runs` are preserved
+across runs (issue #604). Orchestrates the existing helper scripts:
 
   - tusk init-scan-codebase  → propose domains
   - tusk test-detect         → propose test_command
-  - tusk init-write-config   → merge config, back up, reinit DB
+  - tusk init-write-config   → merge config, back up, refresh validation
+                                triggers (non-destructive when DB exists)
   - tusk init-fetch-bootstrap → fetch project_libs bootstrap tasks
   - tusk task-insert         → seed tasks
 
@@ -35,6 +40,16 @@ Behaviour flags:
                                    project_libs bootstrap. Default: none in
                                    non-interactive mode.
 
+Scaffolding flags (mutually exclusive):
+    --scaffold-spec <json>   JSON array of {name, purpose, agent} objects;
+                             after writing config, invokes `tusk init-scaffold`
+                             with the spec. Lets one-shot CI runs do the full
+                             bootstrap (config + scaffolding + bootstrap tasks)
+                             in a single init-wizard invocation.
+    --no-scaffold            Explicit opt-out marker. Equivalent to omitting
+                             --scaffold-spec; included for symmetry with the
+                             /tusk-init SKILL.md flow.
+
 Output (JSON):
     {
       "success": true,
@@ -42,6 +57,7 @@ Output (JSON):
       "config_path": "/path/to/tusk/config.json",
       "written": {"domains": [...], "agents": {...}, ...},
       "scan": {"manifests": [...], "detected_domains": [...]},
+      "scaffold": null | {"success": true, "mode": ..., "created": [...], "skipped": [...]},
       "seeded_tasks": [{"task_id": 42, "summary": "..."}],
       "skipped_tasks": [{"summary": "...", "reason": "..."}]
     }
@@ -318,6 +334,25 @@ def _apply_write_config(picked: dict) -> dict:
         return {"success": False, "error": stderr or "init-write-config produced no JSON output"}
 
 
+def _run_scaffold(spec_json: str) -> dict:
+    """Invoke `tusk init-scaffold --spec <json>` and return its parsed JSON output.
+    Returns a {"success": False, "error": ...} dict on any failure (subprocess
+    error, non-zero exit, or unparseable stdout) — matches the shape callers see
+    on the success path."""
+    try:
+        result = _run_tusk(["init-scaffold", "--spec", spec_json], timeout=60)
+    except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+        return {"success": False, "error": f"init-scaffold failed to run: {e}"}
+    if not result.stdout.strip():
+        stderr = (result.stderr or "").strip()
+        return {"success": False, "error": stderr or "init-scaffold produced no JSON output"}
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        stderr = (result.stderr or "").strip()
+        return {"success": False, "error": stderr or "init-scaffold produced invalid JSON"}
+
+
 def _seed_bootstrap_tasks(interactive: bool) -> tuple:
     """Run init-fetch-bootstrap + task-insert for each bootstrap task.
     Returns (seeded_tasks, skipped_tasks)."""
@@ -399,6 +434,14 @@ def main():
             "first two positional arguments (invoked via `tusk init-wizard`)."
         )
 
+    # Print help and exit before any side effects. parse_known_args silently
+    # drops --help when add_help=False, so the wizard would otherwise run and
+    # rewrite tusk/config.json on `tusk init-wizard --help`.
+    forwarded = sys.argv[3:]
+    if any(arg in ("--help", "-h") for arg in forwarded):
+        print(__doc__)
+        sys.exit(0)
+
     config_path = sys.argv[2]
 
     parser = argparse.ArgumentParser(add_help=False)
@@ -419,6 +462,8 @@ def main():
         choices=["none", "all"],
         default=None,
     )
+    parser.add_argument("--scaffold-spec", default=None, dest="scaffold_spec")
+    parser.add_argument("--no-scaffold", action="store_true", dest="no_scaffold")
     args, _ = parser.parse_known_args(sys.argv[3:])
 
     # Resolve mode. --interactive / --non-interactive win; otherwise TTY-detect.
@@ -446,6 +491,11 @@ def main():
             "project-libs", args.project_libs, dict, "object"
         )
 
+    if args.scaffold_spec is not None and args.no_scaffold:
+        _fail("--scaffold-spec and --no-scaffold are mutually exclusive")
+    if args.scaffold_spec is not None:
+        _parse_json_arg("scaffold-spec", args.scaffold_spec, list, "array")
+
     seed_bootstrap = args.seed_bootstrap
     if seed_bootstrap is None:
         seed_bootstrap = "all" if interactive else "none"
@@ -467,10 +517,13 @@ def main():
             "error": write_result.get("error") or "init-write-config failed",
             "written": picked,
             "scan": scan,
+            "scaffold": None,
             "seeded_tasks": [],
             "skipped_tasks": [],
         })
         sys.exit(1)
+
+    scaffold_result = _run_scaffold(args.scaffold_spec) if args.scaffold_spec is not None else None
 
     seeded: list = []
     skipped: list = []
@@ -483,6 +536,7 @@ def main():
         "config_path": write_result.get("config_path", config_path),
         "written": picked,
         "scan": scan,
+        "scaffold": scaffold_result,
         "seeded_tasks": seeded,
         "skipped_tasks": skipped,
     })

@@ -12,6 +12,7 @@
   "dupes": {
     "strip_prefixes": ["Deferred", "Enhancement", "Optional"],
     "check_threshold": 0.82,
+    "criterion_check_threshold": 0.88,
     "similar_threshold": 0.6
   },
   "review": {
@@ -29,7 +30,7 @@
   },
   "issue_scoring": {
     "factors": {
-      "test_present":   { "yes": 2, "no": -1 },
+      "test_present":   { "yes": 2, "no": -1, "unverifiable": 1 },
       "pillar_aligned": { "yes": 2, "no": -3 },
       "duplicate":      { "yes": -5, "no": 0 },
       "in_scope":       { "yes": 1, "no": -3 },

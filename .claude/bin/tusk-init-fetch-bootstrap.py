@@ -14,28 +14,38 @@ Output (JSON):
           "name": "ios_app",
           "repo": "gioe/ios-libs",
           "tasks": [...],
+          "manifest_files": [...],
           "error": null
         },
         {
           "name": "bad_lib",
           "repo": "owner/repo",
           "tasks": [],
+          "manifest_files": [],
           "error": "404: tusk-bootstrap.json not found"
         }
       ]
     }
 
-Each lib entry always has: name, repo, tasks (list), error (str or null).
+Each lib entry always has: name, repo, tasks (list), manifest_files (list), error (str or null).
 """
 
 import base64
 import json
+import os
 import subprocess
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import tusk_loader  # loads tusk-path-lib.py
+
+_path_lib = tusk_loader.load("tusk-path-lib")
+validate_relative_path = _path_lib.validate_relative_path
 
 
 REQUIRED_TOP_LEVEL = {"version", "project_type", "tasks"}
 REQUIRED_TASK_FIELDS = {"summary", "description", "priority", "task_type", "complexity", "criteria"}
+VALID_MANIFEST_MODES = {"create_only", "append_if_missing"}
 
 
 def _fetch_bootstrap(repo: str, ref: str) -> tuple:
@@ -105,6 +115,27 @@ def _validate(data: dict) -> str | None:
         ):
             return f"tasks[{i}].migration_hints must be an array of strings"
 
+    manifest_files = data.get("manifest_files")
+    if manifest_files is not None:
+        if not isinstance(manifest_files, list):
+            return "manifest_files must be an array"
+        for i, entry in enumerate(manifest_files):
+            if not isinstance(entry, dict):
+                return f"manifest_files[{i}] is not an object"
+            if "path" not in entry:
+                return f"manifest_files[{i}] missing required field 'path'"
+            path_err = validate_relative_path(entry["path"])
+            if path_err:
+                return f"manifest_files[{i}].path: {path_err}"
+            if "content" not in entry:
+                return f"manifest_files[{i}] missing required field 'content'"
+            if not isinstance(entry["content"], str):
+                return f"manifest_files[{i}].content must be a string"
+            mode = entry.get("mode", "create_only")
+            if mode not in VALID_MANIFEST_MODES:
+                valid_list = sorted(VALID_MANIFEST_MODES)
+                return f"manifest_files[{i}].mode must be one of {valid_list}"
+
     return None
 
 
@@ -134,20 +165,26 @@ def main():
         ref = lib_cfg.get("ref", "main")
 
         if not repo:
-            libs_out.append({"name": name, "repo": repo, "tasks": [], "error": "missing repo in config"})
+            libs_out.append({"name": name, "repo": repo, "tasks": [], "manifest_files": [], "error": "missing repo in config"})
             continue
 
         data, fetch_err = _fetch_bootstrap(repo, ref)
         if fetch_err:
-            libs_out.append({"name": name, "repo": repo, "tasks": [], "error": fetch_err})
+            libs_out.append({"name": name, "repo": repo, "tasks": [], "manifest_files": [], "error": fetch_err})
             continue
 
         val_err = _validate(data)
         if val_err:
-            libs_out.append({"name": name, "repo": repo, "tasks": [], "error": f"invalid bootstrap: {val_err}"})
+            libs_out.append({"name": name, "repo": repo, "tasks": [], "manifest_files": [], "error": f"invalid bootstrap: {val_err}"})
             continue
 
-        libs_out.append({"name": name, "repo": repo, "tasks": data["tasks"], "error": None})
+        libs_out.append({
+            "name": name,
+            "repo": repo,
+            "tasks": data["tasks"],
+            "manifest_files": data.get("manifest_files") or [],
+            "error": None,
+        })
 
     print(json.dumps({"libs": libs_out}))
 

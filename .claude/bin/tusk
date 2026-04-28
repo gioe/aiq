@@ -293,7 +293,7 @@ cmd_validate() {
   echo "Config is valid ($(resolve_config))."
 
   # Check that all three DB gitignore patterns are present
-  local gitignore="$REPO_ROOT/.gitignore"
+  local gitignore="$PROJECT_ROOT/.gitignore"
   local -a db_patterns=("tusk/tasks.db" "tusk/tasks.db-wal" "tusk/tasks.db-shm")
   local missing=0
   for pattern in "${db_patterns[@]}"; do
@@ -308,7 +308,7 @@ cmd_validate() {
 }
 
 update_gitignore() {
-  local gitignore="$REPO_ROOT/.gitignore"
+  local gitignore="$PROJECT_ROOT/.gitignore"
   # Entries that were previously added by tusk but should now be removed.
   # .claude/skills/ was removed so that skill file edits made during /tusk
   # or /retro sessions can be committed and tracked in git.
@@ -372,8 +372,8 @@ update_claude_md() {
   # preserving the long-standing behavior where tusk init creates CLAUDE.md
   # when absent (issue #322).
   local sentinel="<!-- tusk-task-tools -->"
-  local claude_md="$REPO_ROOT/CLAUDE.md"
-  local agents_md="$REPO_ROOT/AGENTS.md"
+  local claude_md="$PROJECT_ROOT/CLAUDE.md"
+  local agents_md="$PROJECT_ROOT/AGENTS.md"
   local target="" label=""
   if [[ "$INSTALL_MODE" == "codex" ]]; then
     if [[ -f "$agents_md" ]]; then target="$agents_md"; label="AGENTS.md"
@@ -585,7 +585,6 @@ SELECT t.*
 FROM tasks t
 WHERE t.status = 'To Do'
   AND t.bakeoff_shadow = 0
-  AND (t.is_deferred = 0 OR t.is_deferred IS NULL)
   AND NOT EXISTS (
     SELECT 1 FROM task_dependencies d
     JOIN tasks blocker ON d.depends_on_id = blocker.id
@@ -602,7 +601,6 @@ SELECT t.*
 FROM tasks t
 WHERE t.status <> 'Done'
   AND t.bakeoff_shadow = 0
-  AND (t.is_deferred = 0 OR t.is_deferred IS NULL)
   AND EXISTS (
     SELECT 1 FROM task_dependencies d
     JOIN tasks downstream ON d.task_id = downstream.id
@@ -889,6 +887,23 @@ CREATE TABLE pillars (
 );
 PILLARS_SCHEMA
 
+  # Test runs (per-repo successful test_command elapsed history; read by
+  # tusk-commit.py to auto-scale test_command_timeout_sec from p95)
+  sqlite3 "$DB_PATH" <<'TEST_RUNS_SCHEMA'
+CREATE TABLE test_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER,
+    session_id INTEGER,
+    test_command TEXT NOT NULL,
+    elapsed_seconds REAL NOT NULL,
+    succeeded INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL,
+    FOREIGN KEY (session_id) REFERENCES task_sessions(id) ON DELETE SET NULL
+);
+CREATE INDEX idx_test_runs_command_succeeded_id ON test_runs(test_command, succeeded, id DESC);
+TEST_RUNS_SCHEMA
+
   # Apply validation triggers from config (after all tables are created)
   local triggers
   triggers="$(generate_triggers)"
@@ -903,7 +918,7 @@ PILLARS_SCHEMA
   fi
 
   # Set schema version so fresh DBs never need migration
-  sqlite3 "$DB_PATH" "PRAGMA user_version = 60;"
+  sqlite3 "$DB_PATH" "PRAGMA user_version = 62;"
 
   echo "Initialized task database at $DB_PATH"
   echo "Note: tusk/tasks.db is local-only — not synced across machines."
@@ -982,13 +997,18 @@ cmd_query() {
 import difflib, sys
 candidates = [
   'init','path','config','validate','sql-quote','branch','commit',
-  'lint','lint-rule','dupes','criteria','dashboard','chain','blockers',
-  'review','deps','session-stats','session-recalc','skill-run',
-  'call-breakdown','session-close','task-get','task-get-multi','task-select','task-start',
-  'task-done','task-insert','task-update','task-reopen','task-list','task-summary',
-  'audit','autoclose','backlog-scan','test-detect','test-precheck','init-scan-codebase','init-scan-todos','init-fetch-bootstrap','init-write-config','init-wizard','review-check-perms','loop','merge','progress',
-  'setup','token-audit','sync-skills','generate-manifest','pricing-update','wsjf','shell',
-  'version','version-bump','changelog-add','migrate','regen-triggers','upgrade',
+  'lint','lint-rule','dupes','conventions','pillars','criteria','dashboard','chain','blockers',
+  'review','review-verdict','review-pass-status','review-final-summary','review-diff-range','review-defer','review-wait','review-check-perms',
+  'deps','session-stats','session-recalc','session-close','skill-run','call-breakdown',
+  'active-project','git-default-branch','branch-parse',
+  'task-get','task-get-multi','task-select','task-start','task-done','task-insert','task-update','task-reopen','task-list','task-summary',
+  'audit','autoclose','backlog-scan','groom','check-deliverables',
+  'retro','retro-signals','retro-themes','retro-finding',
+  'test-detect','test-precheck','add-lib',
+  'init-scan-codebase','init-scan-todos','init-fetch-bootstrap','init-write-config','init-write-manifest-files','init-wizard','init-scaffold',
+  'loop','merge','abandon','bakeoff','progress','setup',
+  'token-audit','sync-skills','generate-manifest','pricing-update','wsjf','shell',
+  'version','version-bump','report-issue','changelog-add','migrate','update-gitignore','regen-triggers','upgrade',
 ]
 matches = difflib.get_close_matches(sys.argv[1], candidates, n=1, cutoff=0.6)
 print(matches[0] if matches else '')
@@ -1422,7 +1442,9 @@ case "${1:-}" in
   init-scan-todos) shift; exec python3 "$SCRIPT_DIR/tusk-init-scan-todos.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   init-fetch-bootstrap) shift; exec python3 "$SCRIPT_DIR/tusk-init-fetch-bootstrap.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   init-write-config) shift; exec python3 "$SCRIPT_DIR/tusk-init-write-config.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
+  init-write-manifest-files) shift; exec python3 "$SCRIPT_DIR/tusk-init-write-manifest-files.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   init-wizard) shift; exec python3 "$SCRIPT_DIR/tusk-init-wizard.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
+  init-scaffold) shift; exec python3 "$SCRIPT_DIR/tusk-init-scaffold.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   review-check-perms) shift; exec python3 "$SCRIPT_DIR/tusk-review-check-perms.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   loop) shift; exec python3 "$SCRIPT_DIR/tusk-loop.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
   merge) shift; exec python3 "$SCRIPT_DIR/tusk-merge.py" "$DB_PATH" "$(resolve_config)" "$@" ;;
@@ -1444,6 +1466,6 @@ case "${1:-}" in
   update-gitignore) cmd_update_gitignore ;;
   regen-triggers) cmd_regen_triggers ;;
   upgrade) shift; cmd_upgrade "$@" ;;
-  "")     echo "Usage: tusk {init|path|config|validate|sql-quote|commit|lint|lint-rule|dupes|deps|blockers|review|conventions|pillars|criteria|dag|dashboard|wsjf|audit|setup|autoclose|backlog-scan|init-scan-codebase|review-check-perms|token-audit|sync-skills|pricing-update|session-stats|session-recalc|session-close|git-default-branch|branch-parse|skill-run|call-breakdown|task-get|task-get-multi|task-select|task-start|task-done|task-insert|task-update|task-reopen|task-list|task-summary|merge|abandon|progress|shell|version|version-bump|changelog-add|migrate|update-gitignore|upgrade|regen-triggers|report-issue|\"SQL ...\"}" >&2; exit 1 ;;
+  "")     echo "Usage: tusk {init|path|config|validate|sql-quote|branch|commit|lint|lint-rule|dupes|conventions|pillars|criteria|dashboard|chain|blockers|review|review-verdict|review-pass-status|review-final-summary|review-diff-range|review-defer|review-wait|review-check-perms|deps|session-stats|session-recalc|session-close|skill-run|call-breakdown|active-project|git-default-branch|branch-parse|task-get|task-get-multi|task-select|task-start|task-done|task-insert|task-update|task-reopen|task-list|task-summary|audit|autoclose|backlog-scan|groom|check-deliverables|retro|retro-signals|retro-themes|retro-finding|test-detect|test-precheck|add-lib|init-scan-codebase|init-scan-todos|init-fetch-bootstrap|init-write-config|init-write-manifest-files|init-wizard|init-scaffold|loop|merge|abandon|bakeoff|progress|setup|token-audit|sync-skills|generate-manifest|pricing-update|wsjf|shell|version|version-bump|report-issue|changelog-add|migrate|update-gitignore|regen-triggers|upgrade|\"SQL ...\"}" >&2; exit 1 ;;
   *)      cmd_query "$@" ;;
 esac
